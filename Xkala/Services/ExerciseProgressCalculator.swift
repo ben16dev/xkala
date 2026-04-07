@@ -9,6 +9,14 @@ struct ExerciseProgressSnapshot: Equatable {
     let hasEnoughData: Bool
 }
 
+/// Estadísticas básicas: mismos criterios de inclusión que `snapshot` (`buildSessions`), sin texto de presentación.
+struct ExerciseBasicStatsSnapshot: Equatable {
+    /// Número de veces que el ejercicio ha sido completado con al menos un set válido.
+    /// No representa días únicos, sino sesiones históricas totales del ejercicio.
+    let sessionsCount: Int
+    let lastSessionDate: Date?
+}
+
 enum ProgressTrend: Equatable {
     case up
     case flat
@@ -61,6 +69,17 @@ struct ExerciseProgressCalculator {
             comparisonText: comparison.text,
             trend: comparison.trend,
             hasEnoughData: true
+        )
+    }
+
+    /// Misma base que `snapshot`: sesiones con `isDone`, mismo ejercicio, y al menos un set válido.
+    static func basicStats(for exercise: Exercise, in workouts: [WorkoutDay]) -> ExerciseBasicStatsSnapshot {
+        let mode = exercise.modeEnum
+        let loadAllowed = exercise.loadAllowed
+        let sessions = buildSessions(for: exercise, mode: mode, loadAllowed: loadAllowed, workouts: workouts)
+        return ExerciseBasicStatsSnapshot(
+            sessionsCount: sessions.count,
+            lastSessionDate: sessions.first?.workoutDate
         )
     }
 
@@ -254,4 +273,3 @@ private extension Double {
         return diff > 0 ? .orderedDescending : .orderedAscending
     }
 }
-

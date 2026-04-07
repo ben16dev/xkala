@@ -1,0 +1,37 @@
+---
+description: Contexto global del proyecto Xkala
+globs: ["**/*"]
+alwaysApply: true
+---
+
+Xkala es una app iOS para escaladores.
+
+Stack:
+- SwiftUI
+- SwiftData local
+- Sin CloudKit
+
+Modelo:
+- WorkoutDay → WorkoutEntry → SetRecord
+- Exercise reutilizable
+
+Objetivo:
+Seguir el progreso del usuario, no solo registrar entrenamientos.
+
+Reglas clave:
+- No romper el histórico
+- Evitar duplicados de Exercise
+- No persistir estadísticas derivadas todavía
+- Separar lógica de cálculo, persistencia y UI
+
+Forma de trabajar:
+- Cambios pequeños y verificables
+- Priorizar pruebas en iPhone real
+- Evitar refactors grandes
+- Pedir contexto antes de asumir
+
+Development philosophy:
+
+- Build the smallest possible version that delivers value
+- Avoid designing future features prematurely
+- Prefer working software over perfect architecture

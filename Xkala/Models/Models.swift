@@ -182,6 +182,25 @@ extension WorkoutDay {
     }
 }
 
+// MARK: - UserProfile
+
+/// Perfil local único (sin login). Solo debe existir una instancia en el store.
+@Model
+final class UserProfile {
+    var name: String
+    var heightCm: Double?
+    var birthDate: Date?
+
+    init(
+        name: String = "",
+        heightCm: Double? = nil,
+        birthDate: Date? = nil
+    ) {
+        self.name = name
+        self.heightCm = heightCm
+        self.birthDate = birthDate
+    }
+}
 
 // MARK: - SetRecord
 

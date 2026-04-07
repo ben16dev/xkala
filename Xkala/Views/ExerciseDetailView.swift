@@ -12,6 +12,7 @@ struct ExerciseDetailView: View {
 
     var body: some View {
         let progressSnapshot = ExerciseProgressCalculator.snapshot(for: entry.exercise, in: workouts)
+        let basicStats = ExerciseProgressCalculator.basicStats(for: entry.exercise, in: workouts)
 
         List {
             if !entry.exercise.notes.isEmpty {
@@ -169,6 +170,10 @@ struct ExerciseDetailView: View {
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+            }
+
+            Section("Estadísticas") {
+                ExerciseBasicStatsSectionView(snapshot: basicStats)
             }
 
             Section("Progreso") {

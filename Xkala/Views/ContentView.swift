@@ -14,6 +14,9 @@ struct ContentView: View {
     @State private var fabPressed = false
     private let fabHaptic = UIImpactFeedbackGenerator(style: .medium)
 
+    @State private var isExportSharePresented = false
+    @State private var exportShareURL: URL?
+
     private enum Mode: String, CaseIterable {
         case list = "Lista"
         case calendar = "Calendario"
@@ -121,8 +124,27 @@ struct ContentView: View {
                     }
                 }
                 .navigationTitle("Xkala")
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        NavigationLink {
+                            ProfileView()
+                        } label: {
+                            Text("Perfil")
+                        }
+                    }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Exportar JSON") {
+                            exportJSONForSharing()
+                        }
+                    }
+                }
                 .navigationDestination(item: $selectedWorkout) { workout in
                     WorkoutDetailView(workout: workout)
+                }
+                .sheet(isPresented: $isExportSharePresented, onDismiss: { exportShareURL = nil }) {
+                    if let url = exportShareURL {
+                        ActivityView(activityItems: [url])
+                    }
                 }
                 .sheet(isPresented: $isShowingDaySheet) {
                     DayWorkoutsSheetView(
@@ -214,6 +236,15 @@ struct ContentView: View {
             context.delete(w)
         }
         try? context.save()
+    }
+
+    private func exportJSONForSharing() {
+        do {
+            exportShareURL = try ExportService.exportTemporaryJSONFile(context: context)
+            isExportSharePresented = true
+        } catch {
+            print(error)
+        }
     }
 }
 

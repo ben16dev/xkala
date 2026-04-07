@@ -1,8 +1,10 @@
+# Xkala — Contexto maestro del proyecto
+
 Xkala es una app iOS desarrollada en SwiftUI + SwiftData para escaladores.
 
 La app ya no se define solo como una herramienta para registrar entrenamientos: está evolucionando hacia una app orientada al seguimiento del progreso, con estadísticas, gráficas, métricas por ejercicio, tests, e importación/exportación de datos.
 
-Tu función es:
+## Tu función
 
 - Proponer cambios coherentes con la arquitectura actual.
 - No reinventar la estructura si no es necesario.
@@ -13,7 +15,7 @@ Tu función es:
 - Pensar en evolución de producto, no solo en generación de código.
 - Proponer fases pequeñas y comprobables antes de meterse en refactors grandes.
 
-METODO DE TRABAJO ACTUAL
+## Método de trabajo actual
 
 El desarrollo de Xkala se hace con este flujo:
 
@@ -31,23 +33,23 @@ Por tanto, cuando respondas:
 - Piensa en cómo encajará la propuesta en Cursor, Claude y Engram.
 - Da prioridad a código que pueda probarse rápido en un clon antes de consolidarlo en el proyecto principal.
 
-ARQUITECTURA ACTUAL
+## Arquitectura actual
 
-Persistencia:
+### Persistencia
 - SwiftData local
 - ModelContainer manual en XkalaApp
 - No CloudKit
 - No almacenamiento en memoria
 - Modelo persistente real
 
-MODELOS
+## Modelos
 
-WorkoutDay
+### WorkoutDay
 - date: Date
 - notes: String
 - entries: [WorkoutEntry]
 
-Exercise
+### Exercise
 - name: String
 - category: String
 - mode: "reps" o "seconds"
@@ -55,7 +57,7 @@ Exercise
 - notes: String
 - isArchived: Bool
 
-WorkoutEntry
+### WorkoutEntry
 - exercise: Exercise
 - intensity: Int
 - isDone: Bool
@@ -65,12 +67,12 @@ WorkoutEntry
 - climbGradeColor: String?  // solo bloque: "green" | "yellow" | "orange" | "purple"
 - sets: [SetRecord]
 
-SetRecord
+### SetRecord
 - reps: Int?
 - seconds: Int?
 - loadKg: Double?
 
-VISIÓN DE PRODUCTO
+## Visión de producto
 
 Xkala es una app para escaladores orientada al seguimiento del progreso.
 
@@ -85,7 +87,7 @@ Debe permitir:
 
 La prioridad del producto es entender la evolución del escalador, no solo verificar si ha cumplido un plan de entrenamiento.
 
-REGLAS IMPORTANTES DE DOMINIO
+## Reglas obligatorias de dominio
 
 - Exercise.mode solo puede ser "reps" o "seconds".
 - Si mode == "reps", usar reps en SetRecord.
@@ -98,6 +100,7 @@ REGLAS IMPORTANTES DE DOMINIO
 - No mezclar progreso real con datos vacíos o placeholders sin justificarlo.
 - Si una métrica depende de datos ambiguos, priorizar interpretación conservadora.
 
+### Reglas obligatorias para Bloque y Travesía
 - Bloques y Travesías se modelan como ejercicios plantilla, no como Exercise independientes por instancia.
 - Los ejercicios base son "Bloque" y "Travesía".
 - 1 WorkoutEntry = 1 bloque real o 1 travesía real.
@@ -109,7 +112,7 @@ REGLAS IMPORTANTES DE DOMINIO
 - No reutilizar intensity para representar el grado/color de Bloque.
 - No usar entryNotes como fuente principal de datos estructurados de Bloques/Travesías.
 
-REGLAS IMPORTANTES DE ARQUITECTURA
+## Reglas obligatorias de arquitectura
 
 - No cambiar el modelo SwiftData sin justificación clara.
 - No proponer migraciones si no son necesarias.
@@ -121,7 +124,7 @@ REGLAS IMPORTANTES DE ARQUITECTURA
 - Si una solución puede hacerse sin tocar persistencia, esa opción tiene prioridad en fases tempranas.
 - Cualquier cambio debe respetar el historial ya guardado.
 
-RIESGOS CLAVE A VIGILAR
+## Riesgos clave a vigilar
 
 - Duplicados de Exercise por importación o creación manual.
 - Borrados que rompan histórico o relaciones.
@@ -131,40 +134,39 @@ RIESGOS CLAVE A VIGILAR
 - Refactors que compliquen innecesariamente SwiftData.
 - Cálculos de progreso hechos dentro de vistas de forma poco reutilizable.
 - Mezclar edición de entreno con análisis histórico sin estructura clara.
-
 - Crear múltiples Exercise para bloques o travesías concretos en lugar de usar ejercicios plantilla.
 - Mezclar la semántica de intensity con el grado/color de Bloque.
 - Exponer editor genérico de sets en Bloques/Travesías y terminar persistiendo múltiples sets innecesarios.
 
-FLUJO DE PANTALLAS ACTUAL
+## Estado actual de pantallas
 
-ContentView
-→ Lista WorkoutDay
-→ Crea uno por día sin duplicar fecha
+### ContentView
+- Lista WorkoutDay
+- Crea uno por día sin duplicar fecha
 
-WorkoutDetailView
-→ Lista WorkoutEntry
-→ Añadir ejercicio
+### WorkoutDetailView
+- Lista WorkoutEntry
+- Añadir ejercicio
 
-AddExerciseView
-→ Filtra catálogo
-→ Permite crear ejercicio manual
-→ Reimporta CSV
+### AddExerciseView
+- Filtra catálogo
+- Permite crear ejercicio manual
+- Reimporta CSV
 
-ExerciseDetailView
-→ Edita intensidad
-→ Edita sets
-→ Tiempo en formato mm:ss
-→ Step +/- tiempo = 5s
-→ Botón OK global en toolbar teclado
-→ Actualmente ya puede mostrar progreso básico del ejercicio
-→ Para "Bloque" y "Travesía" usa editor específico:
-   - sin intensidad
-   - sin editor de sets
-   - Bloque: identificador, color, intentos, completado
-   - Travesía: identificador A–Z, intentos, completado
+### ExerciseDetailView
+- Edita intensidad
+- Edita sets
+- Tiempo en formato mm:ss
+- Step +/- tiempo = 5s
+- Botón OK global en toolbar teclado
+- Actualmente ya puede mostrar progreso básico del ejercicio
+- Para "Bloque" y "Travesía" usa editor específico:
+  - sin intensidad
+  - sin editor de sets
+  - Bloque: identificador, color, intentos, completado
+  - Travesía: identificador A–Z, intentos, completado
 
-DECISIONES UX IMPORTANTES
+## Decisiones UX importantes
 
 - Tiempo visible como mm:ss
 - Step de tiempo en incrementos de 5 segundos
@@ -174,7 +176,7 @@ DECISIONES UX IMPORTANTES
 - La app debe sentirse útil para escaladores, no solo correcta técnicamente
 - La UX debe priorizar comprensión de progreso y claridad de métricas
 
-FORMA DE RESPONDER
+## Forma de responder
 
 Cuando propongas cambios:
 
@@ -188,7 +190,7 @@ Cuando propongas cambios:
 - Indica cuál sería el primer paso mínimo y seguro.
 - Prioriza propuestas que puedan probarse rápido en iPhone antes de consolidarlas.
 
-CUANDO PROPONGAS CÓDIGO
+## Cuando propongas código
 
 - El código debe encajar con la arquitectura actual.
 - No generes capas innecesarias.
@@ -199,7 +201,7 @@ CUANDO PROPONGAS CÓDIGO
 - Si una vista necesita métricas, intenta que reciba datos ya calculados en vez de calcular todo dentro.
 - Piensa siempre en mantenibilidad, simplicidad y evolución gradual.
 
-CONTEXTO DE TRABAJO CON IA
+## Contexto de trabajo con IA
 
 - Claude y Cursor se usan para implementar.
 - Engram se usa para recordar decisiones y contexto del proyecto.
@@ -213,9 +215,9 @@ Por eso, al responder:
 - Si una propuesta es buena pero no es oportuna todavía, dilo.
 - Si algo debería hacerse más adelante, indícalo claramente.
 
-SI FALTA CONTEXTO
+## Si falta contexto
 
 - Pide el archivo concreto antes de asumir detalles internos.
 - Si basta con ver una vista o servicio concreto, pide solo eso.
 - No supongas estructuras no confirmadas.
-- Si el contexto ya existe en las reglas o en la conversación, úsalo y no vuelvas a pedirlo.
+- Si el contexto ya existe en estas reglas o en la conversación, úsalo y no vuelvas a pedirlo.
