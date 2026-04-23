@@ -12,6 +12,12 @@ struct ExerciseProgressSectionView: View {
                 MetricRow(title: "Mejor marca", value: snapshot.bestMarkText)
                 MetricRow(title: "Última sesión", value: snapshot.lastSessionText)
                 MetricRow(title: "Comparación", value: snapshot.comparisonText)
+                if !snapshot.vsBestText.isEmpty {
+                    Text(snapshot.vsBestText)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

@@ -263,31 +263,7 @@ struct AddExerciseView: View {
                     try? context.save()
                 }
 
-                for row in rows {
-                    guard row.count >= 4 else { continue }
-
-                    let name = row[0].trimmingCharacters(in: .whitespacesAndNewlines)
-                    let category = row[1].trimmingCharacters(in: .whitespacesAndNewlines)
-
-                    let metricRaw = row[2].trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-                    let mode: String = (metricRaw == "seconds" || metricRaw == "second" || metricRaw == "time" || metricRaw == "tiempo")
-                        ? "seconds"
-                        : "reps"
-
-                    let loadRaw = row[3].trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-                    let loadAllowed = (loadRaw == "si" || loadRaw == "sí" || loadRaw == "yes" || loadRaw == "true" || loadRaw == "1")
-
-                    let notes = (row.count >= 5) ? row[4].trimmingCharacters(in: .whitespacesAndNewlines) : ""
-
-                    try ExerciseImporter.upsertExercise(
-                        name: name,
-                        category: category,
-                        mode: mode,
-                        loadAllowed: loadAllowed,
-                        notes: notes,
-                        context: context
-                    )
-                }
+                try ExerciseImporter.upsertFromCatalogRows(rows, context: context)
 
                 try? context.save()
             } catch {

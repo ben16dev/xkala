@@ -11,8 +11,8 @@ struct ExerciseDetailView: View {
     @State private var completionPulse = false
 
     var body: some View {
-        let progressSnapshot = ExerciseProgressCalculator.snapshot(for: entry.exercise, in: workouts)
-        let basicStats = ExerciseProgressCalculator.basicStats(for: entry.exercise, in: workouts)
+        let progressSnapshot = ExerciseProgressCalculator.snapshot(for: entry, in: workouts)
+        let basicStats = ExerciseProgressCalculator.basicStats(for: entry, in: workouts)
 
         List {
             if !entry.exercise.notes.isEmpty {
@@ -64,7 +64,17 @@ struct ExerciseDetailView: View {
                         }
                     }
 
-                    if !entry.isBlock && !entry.isTraverse {
+                    if (entry.usesBlockEditor || entry.usesTraverseEditor) && entry.isDone {
+                        Toggle(
+                            "Completado con éxito",
+                            isOn: Binding(
+                                get: { entry.climbSuccess ?? false },
+                                set: { entry.climbSuccess = $0 }
+                            )
+                        )
+                    }
+
+                    if !entry.usesBlockEditor && !entry.usesTraverseEditor {
                         IntControlRow(
                             title: "Intensidad",
                             value: $entry.intensity,
@@ -82,10 +92,36 @@ struct ExerciseDetailView: View {
 
             Section("Registro") {
                 VStack(spacing: 12) {
-                    if entry.isBlock {
+                    if entry.usesBlockEditor {
                         BlockEntryEditorView(entry: entry)
-                    } else if entry.isTraverse {
+                    } else if entry.usesTraverseEditor {
                         TraverseEntryEditorView(entry: entry)
+                    } else if entry.usesIntermittentHangboardEditor {
+                        IntermittentHangboardEditorView(
+                            workSeconds: Binding(
+                                get: { entry.sets.first?.seconds ?? 7 },
+                                set: { newValue in applyIntermittentWorkSecondsToAll(newValue) }
+                            ),
+                            restSeconds: Binding(
+                                get: { intermittentRestSeconds(from: entry.entryNotes) ?? 3 },
+                                set: { newValue in
+                                    entry.entryNotes = writingIntermittentRestSeconds(newValue, into: entry.entryNotes)
+                                }
+                            ),
+                            rounds: Binding(
+                                get: { entry.sets.first?.reps ?? 6 },
+                                set: { newValue in applyIntermittentRoundsToAll(newValue) }
+                            ),
+                            cycles: Binding(
+                                get: { max(entry.sets.count, 1) },
+                                set: { newCount in resizeSets(to: max(newCount, 1)) }
+                            ),
+                            loadKg: Binding(
+                                get: { entry.sets.first?.loadKg ?? 0 },
+                                set: { newValue in applyLoadToAll(newValue) }
+                            ),
+                            loadAllowed: entry.exercise.loadAllowed
+                        )
                     } else {
                         if entry.sets.isEmpty {
                             Text("Creando registro…")
@@ -93,7 +129,7 @@ struct ExerciseDetailView: View {
                                 .onAppear { ensureAtLeastOneSet() }
                         }
 
-                        if isVuelta {
+                        if entry.usesVueltaEditor {
                             IntControlRow(
                                 title: "Nº vueltas",
                                 value: Binding(
@@ -183,7 +219,16 @@ struct ExerciseDetailView: View {
             }
 
             Section("Notas") {
-                TextField("Notas del ejercicio…", text: $entry.entryNotes, axis: .vertical)
+                TextField(
+                    "Notas del ejercicio…",
+                    text: Binding(
+                        get: { visibleEntryNotes },
+                        set: { newValue in
+                            entry.entryNotes = mergedEntryNotes(withVisibleNotes: newValue)
+                        }
+                    ),
+                    axis: .vertical
+                )
                     .lineLimit(3...8)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .xkalaCard()
@@ -204,10 +249,11 @@ struct ExerciseDetailView: View {
         .onAppear {
             ensureAtLeastOneSet()
             normalizeSetsToExerciseRules()
-            if entry.isBlock || entry.isTraverse {
+            if entry.usesBlockEditor || entry.usesTraverseEditor {
                 ensureSingleSetForClimb()
             }
-            if isVuelta { ensureSingleSetForVuelta() }
+            if entry.usesVueltaEditor { ensureSingleSetForVuelta() }
+            if entry.usesIntermittentHangboardEditor { configureIntermittentDefaultsIfNeeded() }
         }
         .onChange(of: entry.isDone) { _, newValue in
             if newValue { triggerCompletionFeedback() }
@@ -226,14 +272,6 @@ struct ExerciseDetailView: View {
                 completionPulse = false
             }
         }
-    }
-
-    // MARK: - Caso especial "Vuelta"
-
-    private var isVuelta: Bool {
-        entry.exercise.name.trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
-            .contains("vuelta")
     }
 
     private func ensureSingleSetForVuelta() {
@@ -408,6 +446,59 @@ struct ExerciseDetailView: View {
         }
     }
 
+    private struct IntermittentHangboardEditorView: View {
+        @Binding var workSeconds: Int
+        @Binding var restSeconds: Int
+        @Binding var rounds: Int
+        @Binding var cycles: Int
+        @Binding var loadKg: Double
+        let loadAllowed: Bool
+
+        var body: some View {
+            VStack(spacing: 12) {
+                TimeControlRow(
+                    title: "Tiempo ejercicio",
+                    seconds: $workSeconds,
+                    range: 1...600,
+                    stepSeconds: 1
+                )
+
+                TimeControlRow(
+                    title: "Tiempo descanso",
+                    seconds: $restSeconds,
+                    range: 0...600,
+                    stepSeconds: 1
+                )
+
+                IntControlRow(
+                    title: "Nº rondas",
+                    value: $rounds,
+                    range: 1...50,
+                    step: 1
+                )
+
+                IntControlRow(
+                    title: "Nº ciclos",
+                    value: $cycles,
+                    range: 1...30,
+                    step: 1
+                )
+
+                if loadAllowed {
+                    DoubleControlRow(
+                        title: "Carga",
+                        suffix: "kg",
+                        value: $loadKg,
+                        range: -50...150,
+                        step: 0.5,
+                        decimals: 1
+                    )
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
     // MARK: - Lógica de sets (uniforme)
 
     private func ensureAtLeastOneSet() {
@@ -457,10 +548,28 @@ struct ExerciseDetailView: View {
         ensureAtLeastOneSet()
         for s in entry.sets {
             s.seconds = seconds
-            s.reps = nil
+            if !entry.exercise.isIntermittentHangboardExercise {
+                s.reps = nil
+            }
         }
         if !entry.exercise.loadAllowed {
             for s in entry.sets { s.loadKg = nil }
+        }
+    }
+
+    private func applyIntermittentWorkSecondsToAll(_ seconds: Int) {
+        ensureAtLeastOneSet()
+        let safeSeconds = max(1, seconds)
+        for s in entry.sets {
+            s.seconds = safeSeconds
+        }
+    }
+
+    private func applyIntermittentRoundsToAll(_ rounds: Int) {
+        ensureAtLeastOneSet()
+        let safeRounds = max(1, rounds)
+        for s in entry.sets {
+            s.reps = safeRounds
         }
     }
 
@@ -477,6 +586,17 @@ struct ExerciseDetailView: View {
 
     private func normalizeSetsToExerciseRules() {
         ensureAtLeastOneSet()
+
+        if entry.exercise.isIntermittentHangboardExercise {
+            for s in entry.sets {
+                if s.seconds == nil { s.seconds = 7 }
+                if s.reps == nil { s.reps = 6 }
+            }
+            if !entry.exercise.loadAllowed {
+                for s in entry.sets { s.loadKg = nil }
+            }
+            return
+        }
 
         if entry.exercise.modeEnum == .reps {
             for s in entry.sets { s.seconds = nil }
@@ -495,6 +615,75 @@ struct ExerciseDetailView: View {
             seconds: set.seconds,
             loadKg: set.loadKg
         )
+    }
+
+    private func configureIntermittentDefaultsIfNeeded() {
+        ensureAtLeastOneSet()
+        for s in entry.sets {
+            if s.seconds == nil || s.seconds == 0 {
+                s.seconds = 7
+            }
+            if s.reps == nil || s.reps == 0 {
+                s.reps = 6
+            }
+        }
+
+        if intermittentRestSeconds(from: entry.entryNotes) == nil {
+            entry.entryNotes = writingIntermittentRestSeconds(3, into: entry.entryNotes)
+        }
+    }
+
+    private func intermittentRestSeconds(from notes: String) -> Int? {
+        let pattern = #"\[intermittent_rest_seconds=(\d+)\]"#
+        guard
+            let regex = try? NSRegularExpression(pattern: pattern),
+            let match = regex.firstMatch(in: notes, range: NSRange(notes.startIndex..., in: notes)),
+            match.numberOfRanges > 1,
+            let valueRange = Range(match.range(at: 1), in: notes)
+        else {
+            return nil
+        }
+        return Int(notes[valueRange])
+    }
+
+    private func writingIntermittentRestSeconds(_ seconds: Int, into notes: String) -> String {
+        let safeValue = max(0, seconds)
+        let token = "[intermittent_rest_seconds=\(safeValue)]"
+        let pattern = #"\[intermittent_rest_seconds=\d+\]"#
+
+        if let range = notes.range(of: pattern, options: .regularExpression) {
+            var updated = notes
+            updated.replaceSubrange(range, with: token)
+            return updated
+        }
+
+        let trimmed = notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            return token
+        }
+        return "\(notes)\n\(token)"
+    }
+
+    private var visibleEntryNotes: String {
+        guard entry.exercise.isIntermittentHangboardExercise else { return entry.entryNotes }
+        return notesWithoutIntermittentRestToken(entry.entryNotes)
+    }
+
+    private func mergedEntryNotes(withVisibleNotes visibleNotes: String) -> String {
+        guard entry.exercise.isIntermittentHangboardExercise else { return visibleNotes }
+        let rest = intermittentRestSeconds(from: entry.entryNotes)
+        let baseNotes = notesWithoutIntermittentRestToken(visibleNotes)
+
+        guard let rest else { return baseNotes }
+        return writingIntermittentRestSeconds(rest, into: baseNotes)
+    }
+
+    private func notesWithoutIntermittentRestToken(_ notes: String) -> String {
+        let pattern = #"\[intermittent_rest_seconds=\d+\]"#
+        let stripped = notes.replacingOccurrences(of: pattern, with: "", options: .regularExpression)
+        return stripped
+            .replacingOccurrences(of: #"\n{3,}"#, with: "\n\n", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     // MARK: - Keyboard

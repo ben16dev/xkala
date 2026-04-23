@@ -3,7 +3,7 @@ import Foundation
 enum ExerciseCatalog {
     static let csv: String = """
 Nombre,Categoría,Métrica principal,Permite carga?,Notas opcionales
-Dominadas lastradas,Fuerza,reps,si,"Barra fija. Rango típico 4x4. Lastre en kg. Controla bajada; escápulas activas."
+Dominadas con lastre negativo,Fuerza,reps,si,"Barra fija. Rango típico 4x4. Lastre en kg. Controla bajada; escápulas activas."
 Press banca mancuernas,Fuerza,reps,si,"Banco plano. 3x6–8. Mantén hombros retraídos; recorrido controlado."
 Dominadas escapulares,Fuerza,reps,no,"Colgado en barra. Sin flexionar codos: solo depresión/retracción escapular. 3x10–12."
 Plancha TRX,Core,seconds,no,"Pies en TRX, cuerpo en línea. 3x30–40s. Evita hundir lumbar."
@@ -27,8 +27,6 @@ Suspensiones regleta 20mm (lastre ligero),Hangboard,seconds,si,"Regleta 20 mm. E
 Suspensiones intermitentes 7''/3'',Hangboard,seconds,si,"Protocolos tipo 7s ON/3s OFF. Registrar rondas y carga/contrapeso."
 Suspensiones lastre progresivo,Hangboard,seconds,si,"Series cortas (p.ej. 4x8s). Subir lastre gradualmente; rec 3'."
 Suspensiones regleta 18mm,Hangboard,seconds,si,"Regleta 18 mm. Volumen moderado, técnica perfecta, evitar dolor."
-Intermitentes 5''/5'',Hangboard,seconds,si,"5s ON/5s OFF. Ajustar carga para completar rondas con control."
-Suspensiones Intermitentes 10''/5'' + lastre,Hangboard,seconds,si,"10s ON/5s OFF con lastre moderado. Registrar rondas y carga."
 Campus básico,Resistencia,reps,no,"Campus board. Subidas controladas, pies opcionales según nivel. 6 series."
 Campus coordinación (toques cortos),Técnica,reps,no,"Patrones con 'toques' y coordinación. Mantén hombros activos. 7 series."
 Campus dinámico (saltos largos),Fuerza,reps,no,"Movimientos dinámicos grandes. Descanso alto; parar si técnica cae."

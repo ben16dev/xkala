@@ -30,7 +30,7 @@ enum SetTemplates {
             // Suspensiones intermitentes (con “carga” negativa tipo -10 kg)
             // Nota: aquí asumimos un protocolo base de 10s si no hay otro dato.
             if name.contains("suspension") || name.contains("suspensión") {
-                if name.contains("intermit") { // intermitentes/intermittent
+                if exercise.isIntermittentHangboardExercise {
                     let load = exercise.loadAllowed ? -10.0 : nil
                     return EntryTemplate(
                         intensity: 1,
@@ -57,7 +57,7 @@ enum SetTemplates {
         // 2) REPS (reps)
         // Vuelta 1: "número de vueltas" = 2 (no “series”)
         // Lo representamos como 1 set con reps = nº vueltas
-        if name.contains("vuelta") {
+        if exercise.isVueltaStyleExercise {
             return EntryTemplate(
                 intensity: 1,
                 sets: makeRepsSets(series: 1, reps: 2, loadKg: nil)

@@ -102,6 +102,9 @@ final class WorkoutEntry {
     var climbKind: String?
     var climbIdentifier: String?
     var climbGradeColor: String?
+    /// `nil` = sin marcar todavía.  `true` = encadenado/completado con éxito.  `false` = intentado sin completar.
+    /// Solo relevante cuando `isBlock || isTraverse`.
+    var climbSuccess: Bool?
 
     @Relationship(deleteRule: .cascade)
     var sets: [SetRecord]
@@ -114,7 +117,8 @@ final class WorkoutEntry {
         sets: [SetRecord] = [],
         climbKind: String? = nil,
         climbIdentifier: String? = nil,
-        climbGradeColor: String? = nil
+        climbGradeColor: String? = nil,
+        climbSuccess: Bool? = nil
     ) {
         self.exercise = exercise
         self.intensity = intensity
@@ -124,6 +128,7 @@ final class WorkoutEntry {
         self.climbKind = climbKind
         self.climbIdentifier = climbIdentifier
         self.climbGradeColor = climbGradeColor
+        self.climbSuccess = climbSuccess
     }
 }
 
@@ -139,6 +144,20 @@ extension WorkoutEntry {
         return exerciseNameNormalized == "travesia"
     }
 
+    // MARK: - Editores especiales (semántica centralizada; la vista no heurística inline)
+
+    /// Misma semántica que `isBlock`: UI de bloque (identificador, color, intentos).
+    var usesBlockEditor: Bool { isBlock }
+
+    /// Misma semántica que `isTraverse`: UI de travesía (letra, intentos).
+    var usesTraverseEditor: Bool { isTraverse }
+
+    /// Ejercicios tipo “Vuelta …”: un solo set, reps = nº vueltas (heurística por nombre).
+    var usesVueltaEditor: Bool { exercise.isVueltaStyleExercise }
+
+    /// `Suspensiones intermitentes` y `Test de Suspensiones intermitentes` en Hangboard.
+    var usesIntermittentHangboardEditor: Bool { exercise.isIntermittentHangboardExercise }
+
     private var climbKindNormalized: String? {
         climbKind?
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -146,10 +165,7 @@ extension WorkoutEntry {
     }
 
     private var exerciseNameNormalized: String {
-        exercise.name
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
-            .folding(options: .diacriticInsensitive, locale: .current)
+        exercise.exerciseNameKeyForSemantics
     }
 }
 
@@ -241,6 +257,48 @@ extension Exercise {
     var modeEnum: ExerciseMode {
         get { ExerciseMode(rawValue: mode) ?? .reps }
         set { mode = newValue.rawValue }
+    }
+
+    // MARK: - Semántica de ejercicio (sin persistencia nueva; evolución futura a campo explícito)
+
+    /// Nombres canónicos de producto para reglas que no deben dispersarse en vistas.
+    enum SemanticExerciseNames {
+        static let suspensionesIntermitentes = "Suspensiones intermitentes"
+        static let testDeSuspensionesIntermitentes = "Test de Suspensiones intermitentes"
+    }
+
+    /// Clave estable para comparar nombre (trim, diacríticos, minúsculas).
+    var exerciseNameKeyForSemantics: String {
+        Self.normalizedKeyForSemanticMatching(name)
+    }
+
+    /// Clave estable para categoría.
+    var exerciseCategoryKeyForSemantics: String {
+        Self.normalizedKeyForSemanticMatching(category)
+    }
+
+    /// Heurística por nombre: ejercicios “Vuelta …” en catálogo (contiene subcadena `vuelta`).
+    var isVueltaStyleExercise: Bool {
+        exerciseNameKeyForSemantics.contains("vuelta")
+    }
+
+    /// Intermitentes en regleta: canónico o variante Test; misma UX que el editor paramétrico.
+    var isIntermittentHangboardExercise: Bool {
+        guard exerciseCategoryKeyForSemantics == "hangboard" else { return false }
+        let n = exerciseNameKeyForSemantics
+        return n == Self.normalizedKeyForSemanticMatching(SemanticExerciseNames.suspensionesIntermitentes)
+            || n == Self.normalizedKeyForSemanticMatching(SemanticExerciseNames.testDeSuspensionesIntermitentes)
+    }
+
+    /// Derivados del catálogo con prefijo `Test de `.
+    var isTestExercise: Bool {
+        exerciseNameKeyForSemantics.hasPrefix("test de ")
+    }
+
+    private static func normalizedKeyForSemanticMatching(_ s: String) -> String {
+        s.trimmingCharacters(in: .whitespacesAndNewlines)
+            .folding(options: .diacriticInsensitive, locale: .current)
+            .lowercased()
     }
 }
 

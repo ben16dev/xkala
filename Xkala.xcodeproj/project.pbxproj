@@ -6,8 +6,19 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXContainerItemProxy section */
+		A9E80E062F96AD2400368736 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A9AA92F32F5B47090038CD64 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A9AA92FA2F5B470A0038CD64;
+			remoteInfo = Xkala;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		A9AA92FB2F5B470A0038CD64 /* Xkala.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Xkala.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A9E80E022F96AD2400368736 /* XkalaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = XkalaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -16,10 +27,22 @@
 			path = Xkala;
 			sourceTree = "<group>";
 		};
+		A9E80E032F96AD2400368736 /* XkalaTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = XkalaTests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		A9AA92F82F5B470A0038CD64 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A9E80DFF2F96AD2400368736 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -33,6 +56,7 @@
 			isa = PBXGroup;
 			children = (
 				A9AA92FD2F5B470A0038CD64 /* Xkala */,
+				A9E80E032F96AD2400368736 /* XkalaTests */,
 				A9AA92FC2F5B470A0038CD64 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -41,6 +65,7 @@
 			isa = PBXGroup;
 			children = (
 				A9AA92FB2F5B470A0038CD64 /* Xkala.app */,
+				A9E80E022F96AD2400368736 /* XkalaTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -70,6 +95,29 @@
 			productReference = A9AA92FB2F5B470A0038CD64 /* Xkala.app */;
 			productType = "com.apple.product-type.application";
 		};
+		A9E80E012F96AD2400368736 /* XkalaTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A9E80E0A2F96AD2400368736 /* Build configuration list for PBXNativeTarget "XkalaTests" */;
+			buildPhases = (
+				A9E80DFE2F96AD2400368736 /* Sources */,
+				A9E80DFF2F96AD2400368736 /* Frameworks */,
+				A9E80E002F96AD2400368736 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A9E80E072F96AD2400368736 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				A9E80E032F96AD2400368736 /* XkalaTests */,
+			);
+			name = XkalaTests;
+			packageProductDependencies = (
+			);
+			productName = XkalaTests;
+			productReference = A9E80E022F96AD2400368736 /* XkalaTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -77,11 +125,15 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2630;
+				LastSwiftUpdateCheck = 2640;
 				LastUpgradeCheck = 2630;
 				TargetAttributes = {
 					A9AA92FA2F5B470A0038CD64 = {
 						CreatedOnToolsVersion = 26.3;
+					};
+					A9E80E012F96AD2400368736 = {
+						CreatedOnToolsVersion = 26.4.1;
+						TestTargetID = A9AA92FA2F5B470A0038CD64;
 					};
 				};
 			};
@@ -100,12 +152,20 @@
 			projectRoot = "";
 			targets = (
 				A9AA92FA2F5B470A0038CD64 /* Xkala */,
+				A9E80E012F96AD2400368736 /* XkalaTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		A9AA92F92F5B470A0038CD64 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A9E80E002F96AD2400368736 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -122,7 +182,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A9E80DFE2F96AD2400368736 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A9E80E072F96AD2400368736 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A9AA92FA2F5B470A0038CD64 /* Xkala */;
+			targetProxy = A9E80E062F96AD2400368736 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		A9AA930A2F5B470A0038CD64 /* Debug */ = {
@@ -312,6 +387,50 @@
 			};
 			name = Release;
 		};
+		A9E80E082F96AD2400368736 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 3DSFYKT65J;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.alejandro.XkalaTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Xkala.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Xkala";
+			};
+			name = Debug;
+		};
+		A9E80E092F96AD2400368736 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 3DSFYKT65J;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.alejandro.XkalaTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Xkala.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Xkala";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -329,6 +448,15 @@
 			buildConfigurations = (
 				A9AA930A2F5B470A0038CD64 /* Debug */,
 				A9AA930B2F5B470A0038CD64 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A9E80E0A2F96AD2400368736 /* Build configuration list for PBXNativeTarget "XkalaTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A9E80E082F96AD2400368736 /* Debug */,
+				A9E80E092F96AD2400368736 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
