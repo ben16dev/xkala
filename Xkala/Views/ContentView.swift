@@ -19,106 +19,17 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottomTrailing) {
-                VStack(alignment: .leading, spacing: 12) {
-                    WorkoutCalendarView(
-                        visibleMonth: visibleMonth,
-                        monthGridCells: daysInVisibleMonthWithLeadingBlanks,
-                        selectedDate: selectedDate,
-                        workouts: workouts,
-                        onSelectDay: { day in
-                            selectedDate = day
-                            visibleMonth = day
-                        },
-                        onPreviousMonth: goToPreviousMonth,
-                        onNextMonth: goToNextMonth
-                    )
-                    .padding(.vertical, 4)
-                    .xkalaCard()
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
+                VStack(spacing: 0) {
+                    homeHeader
 
-                    List {
-                        if workoutsForSelectedDay.isEmpty {
-                            Section {
-                            VStack(spacing: 10) {
-                                Image(systemName: "figure.climbing")
-                                    .font(.system(size: 34))
-                                    .foregroundStyle(.secondary)
+                    calendarSection
 
-                                Text("No hay sesiones este día")
-                                    .font(.headline)
-
-                                Text("Pulsa “Nuevo” para crear una sesión en la fecha seleccionada.")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                                    .multilineTextAlignment(.center)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 6)
-                            .xkalaCard()
-                            .listRowSeparator(.hidden)
-                            .listRowBackground(Color.clear)
-                            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-                            }
-                        } else {
-                            Section {
-                            ForEach(workoutsForSelectedDay) { workout in
-                                Button {
-                                    selectedWorkout = workout
-                                } label: {
-                                    SelectedDaySessionRow(
-                                        workout: workout,
-                                        title: displayTitle(for: workout),
-                                        timeText: displayTime(for: workout)
-                                    )
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .xkalaCard()
-                                }
-                                .buttonStyle(XkalaPressableRowStyle())
-                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                    Button(role: .destructive) {
-                                        deleteWorkout(workout)
-                                    } label: {
-                                        Label("Borrar", systemImage: "trash")
-                                    }
-                                }
-                                .listRowSeparator(.hidden)
-                                .listRowBackground(Color.clear)
-                                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-                            }
-                            .onDelete(perform: deleteWorkoutsForSelectedDay)
-                            }
-                        }
-                    }
-                    .scrollContentBackground(.hidden)
-                    .listStyle(.plain)
+                    selectedDaySessionsList
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                .navigationTitle("Xkala")
-                .toolbar {
-                    ToolbarItemGroup(placement: .topBarTrailing) {
-                        NavigationLink {
-                            ProfileView()
-                        } label: {
-                            Image(systemName: "person.crop.circle")
-                        }
-                        .accessibilityLabel("Perfil")
-
-                        NavigationLink {
-                            StatsView()
-                        } label: {
-                            Image(systemName: "chart.bar.xaxis")
-                        }
-                        .accessibilityLabel("Estadísticas")
-
-                        Button {
-                            exportJSONForSharing()
-                        } label: {
-                            Image(systemName: "square.and.arrow.up")
-                        }
-                        .accessibilityLabel("Exportar JSON")
-                    }
-                }
+                .background(XkalaTheme.bg.ignoresSafeArea())
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar(.hidden, for: .navigationBar)
                 .navigationDestination(item: $selectedWorkout) { workout in
                     WorkoutDetailView(workout: workout)
                 }
@@ -131,44 +42,214 @@ struct ContentView: View {
                     Color.clear.frame(height: 72)
                 }
 
-                Button {
-                    fabHaptic.impactOccurred()
-
-                    withAnimation(.spring(response: 0.18, dampingFraction: 0.55)) {
-                        fabPressed = true
-                    }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
-                            fabPressed = false
-                        }
-                    }
-
-                    createNewWorkout()
-                } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 16, weight: .semibold))
-                        Text("Nuevo")
-                            .font(.system(size: 16, weight: .semibold))
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .background(
-                        Capsule(style: .continuous)
-                            .fill(XkalaTheme.accent.opacity(0.95))
-                    )
-                    .foregroundStyle(Color.white)
-                    .scaleEffect(fabPressed ? 0.95 : 1.0)
-                    .shadow(color: Color.black.opacity(0.35), radius: 18, x: 0, y: 10)
-                    .shadow(color: Color.black.opacity(0.20), radius: 6, x: 0, y: 2)
-                }
-                .buttonStyle(.plain)
-                .padding(.trailing, 18)
-                .padding(.bottom, 18)
-                .accessibilityLabel("Nuevo entreno")
-                .onAppear { fabHaptic.prepare() }
+                newWorkoutFAB
+                    .padding(.trailing, 18)
+                    .padding(.bottom, 18)
             }
         }
+    }
+
+    // MARK: - Header
+
+    private var homeHeader: some View {
+        HStack(alignment: .top, spacing: 16) {
+            NavigationLink {
+                ProfileView()
+            } label: {
+                AvatarView(size: 84, mood: AvatarMoodCalculator.mood(for: workouts))
+                    .padding(6)
+                    .background(
+                        Circle()
+                            .fill(.thinMaterial)
+                    )
+                    .clipShape(Circle())
+                    .overlay {
+                        Circle()
+                            .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                    }
+                    .shadow(color: Color.black.opacity(0.12), radius: 8, x: 0, y: 4)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Abrir perfil")
+
+            Spacer(minLength: 0)
+
+            VStack(alignment: .trailing, spacing: 12) {
+                Text("XKALA")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .tracking(1.2)
+
+                HStack(spacing: 10) {
+                    NavigationLink {
+                        StatsView()
+                    } label: {
+                        Image(systemName: "chart.bar.xaxis")
+                            .font(.headline)
+                            .foregroundStyle(.secondary)
+                            .frame(width: 42, height: 42)
+                            .background(
+                                Circle()
+                                    .fill(.thinMaterial)
+                            )
+                            .overlay(
+                                Circle()
+                                    .stroke(Color.white.opacity(0.10), lineWidth: 1)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Estadísticas")
+
+                    Button {
+                        exportJSONForSharing()
+                    } label: {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.headline)
+                            .foregroundStyle(.secondary)
+                            .frame(width: 42, height: 42)
+                            .background(
+                                Circle()
+                                    .fill(.thinMaterial)
+                            )
+                            .overlay(
+                                Circle()
+                                    .stroke(Color.white.opacity(0.10), lineWidth: 1)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Exportar JSON")
+                }
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
+        .padding(.bottom, 10)
+    }
+
+    // MARK: - Calendario (fijo, sin scroll)
+
+    private var calendarSection: some View {
+        WorkoutCalendarView(
+            visibleMonth: visibleMonth,
+            monthGridCells: daysInVisibleMonthWithLeadingBlanks,
+            selectedDate: selectedDate,
+            workouts: workouts,
+            onSelectDay: { day in
+                selectedDate = day
+                visibleMonth = day
+            },
+            onPreviousMonth: goToPreviousMonth,
+            onNextMonth: goToNextMonth
+        )
+        .padding(.vertical, 4)
+        .xkalaCard()
+        .padding(.horizontal, 16)
+        .padding(.bottom, 10)
+    }
+
+    // MARK: - Lista del día seleccionado (única zona scrollable; List para swipeActions)
+
+    private var selectedDaySessionsList: some View {
+        List {
+            if workoutsForSelectedDay.isEmpty {
+                emptySelectedDayRow
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 24, trailing: 16))
+            } else {
+                ForEach(workoutsForSelectedDay) { workout in
+                    Button {
+                        selectedWorkout = workout
+                    } label: {
+                        SelectedDaySessionRow(
+                            workout: workout,
+                            title: displayTitle(for: workout),
+                            timeText: displayTime(for: workout)
+                        )
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .xkalaCard()
+                    }
+                    .buttonStyle(XkalaPressableRowStyle())
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        Button(role: .destructive) {
+                            deleteWorkout(workout)
+                        } label: {
+                            Label("Borrar", systemImage: "trash")
+                        }
+                    }
+                    .contextMenu {
+                        Button(role: .destructive) {
+                            deleteWorkout(workout)
+                        } label: {
+                            Label("Borrar", systemImage: "trash")
+                        }
+                    }
+                }
+            }
+        }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+    }
+
+    private var emptySelectedDayRow: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "figure.climbing")
+                .font(.system(size: 34))
+                .foregroundStyle(.secondary)
+
+            Text("No hay sesiones este día")
+                .font(.headline)
+
+            Text("Pulsa “Nuevo” para crear una sesión en la fecha seleccionada.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 6)
+        .xkalaCard()
+    }
+
+    // MARK: - FAB
+
+    private var newWorkoutFAB: some View {
+        Button {
+            fabHaptic.impactOccurred()
+
+            withAnimation(.spring(response: 0.18, dampingFraction: 0.55)) {
+                fabPressed = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+                    fabPressed = false
+                }
+            }
+
+            createNewWorkout()
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "plus")
+                    .font(.system(size: 16, weight: .semibold))
+                Text("Nuevo")
+                    .font(.system(size: 16, weight: .semibold))
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(XkalaTheme.accent.opacity(0.95))
+            )
+            .foregroundStyle(Color.white)
+            .scaleEffect(fabPressed ? 0.95 : 1.0)
+            .shadow(color: Color.black.opacity(0.35), radius: 18, x: 0, y: 10)
+            .shadow(color: Color.black.opacity(0.20), radius: 6, x: 0, y: 2)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Crear sesión de rocódromo")
+        .onAppear { fabHaptic.prepare() }
     }
 
     // MARK: - Calendario y día seleccionado
@@ -220,7 +301,7 @@ struct ContentView: View {
         let trimmed = workout.name.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmed.isEmpty { return trimmed }
         if let derived = workout.categoriesBasedName, !derived.isEmpty { return derived }
-        return "Sesión"
+        return workout.sessionTypeEnum == .climbing ? "Sesión de roca" : "Sesión Rocódromo"
     }
 
     private func displayTime(for workout: WorkoutDay) -> String {
@@ -257,13 +338,6 @@ struct ContentView: View {
         }
         context.delete(workout)
         try? context.save()
-    }
-
-    private func deleteWorkoutsForSelectedDay(_ indexSet: IndexSet) {
-        for idx in indexSet {
-            let w = workoutsForSelectedDay[idx]
-            deleteWorkout(w)
-        }
     }
 
     private func exportJSONForSharing() {

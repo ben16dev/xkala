@@ -290,14 +290,26 @@ final class UserProfile {
     var heightCm: Double?
     var birthDate: Date?
 
+    /// Peso del usuario en kilogramos. Optional → SwiftData hace migración ligera
+    /// automática para perfiles existentes (queda como nil hasta que el usuario lo introduzca).
+    var weightKg: Double?
+
+    /// Género del usuario. Valores válidos: "escalador" | "escaladora".
+    /// Default con literal para permitir migración ligera SwiftData en perfiles existentes.
+    var gender: String = "escalador"
+
     init(
         name: String = "",
         heightCm: Double? = nil,
-        birthDate: Date? = nil
+        weightKg: Double? = nil,
+        birthDate: Date? = nil,
+        gender: String = "escalador"
     ) {
         self.name = name
         self.heightCm = heightCm
+        self.weightKg = weightKg
         self.birthDate = birthDate
+        self.gender = gender
     }
 }
 

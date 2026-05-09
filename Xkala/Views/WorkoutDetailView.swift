@@ -19,10 +19,10 @@ struct WorkoutDetailView: View {
         List {
             Section("Sesión") {
                 VStack(spacing: 12) {
-                    TextField("Nombre del entreno", text: $workout.name)
+                    TextField("Nombre de la sesión", text: $workout.name)
 
                     Picker("Tipo", selection: $workout.sessionType) {
-                        Text("Entrenamiento").tag("training")
+                        Text("Rocódromo").tag("training")
                         Text("Roca").tag("climbing")
                     }
                     .pickerStyle(.segmented)
@@ -174,7 +174,12 @@ struct WorkoutDetailView: View {
                     now = started
                     try? context.save()
                 } label: {
-                    XkalaActionButton(title: "Iniciar entrenamiento", systemImage: "play.fill")
+                    XkalaActionButton(
+                        title: workout.sessionTypeEnum == .climbing
+                            ? "Iniciar sesión de roca"
+                            : "Iniciar sesión de rocódromo",
+                        systemImage: "play.fill"
+                    )
                 }
                 .buttonStyle(.plain)
 
