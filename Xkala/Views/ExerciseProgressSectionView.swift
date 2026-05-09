@@ -2,6 +2,8 @@ import SwiftUI
 
 struct ExerciseProgressSectionView: View {
     let snapshot: ExerciseProgressSnapshot
+    /// Pie de métrica para bloque/travesía (menos intentos es mejor).
+    let showLowerIsBetterFootnote: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -18,6 +20,18 @@ struct ExerciseProgressSectionView: View {
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .trailing)
                 }
+
+                if showLowerIsBetterFootnote {
+                    Text("En bloque y travesía, menos intentos es mejor.")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .padding(.top, 2)
+                }
+
+                Text("La evolución visual está en Perfil → Insights.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 4)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

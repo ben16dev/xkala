@@ -22,6 +22,12 @@ Xkala es una app iOS para escaladores orientada al seguimiento del progreso, no 
 - Si una solución puede hacerse sin tocar persistencia, esa opción tiene prioridad.
 - Cualquier cambio debe respetar el historial ya guardado.
 
+## Estadísticas y progreso (decisiones recientes)
+- `StatsView`: agregados globales; siempre datos derivados (`StatsCalculator` → DTOs como `GlobalStatsSnapshot`).
+- `ExerciseProgressCalculator`: progreso por ejercicio y lógica de **récords recientes** (última mejora estricta del máximo histórico; histórico cronológico; sin persistir PRs).
+- Priorizar snapshots/DTOs para la UI; mantener estadísticas globales y `ExerciseDetailView` conceptualmente separados.
+- UX de estadísticas: simple, legible, poco ruido visual.
+
 ## Prioridad de implementación
 - Favorecer cambios pequeños, seguros y comprobables en iPhone real.
 - Evitar refactors grandes de golpe.

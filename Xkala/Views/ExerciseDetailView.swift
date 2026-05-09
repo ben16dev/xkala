@@ -214,7 +214,8 @@ struct ExerciseDetailView: View {
 
             Section("Progreso") {
                 ExerciseProgressSectionView(
-                    snapshot: progressSnapshot
+                    snapshot: progressSnapshot,
+                    showLowerIsBetterFootnote: entry.usesBlockEditor || entry.usesTraverseEditor
                 )
             }
 

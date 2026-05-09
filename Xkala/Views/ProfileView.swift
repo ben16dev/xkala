@@ -16,6 +16,7 @@ struct ProfileView: View {
             }
         }
         .navigationTitle("Perfil")
+        .navigationBarTitleDisplayMode(.large)
         .onAppear(perform: ensureProfileExistsIfNeeded)
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
@@ -52,7 +53,7 @@ private struct UserProfileFormContent: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 20) {
+            VStack(spacing: 24) {
                 photoPlaceholder
                     .padding(.top, 16)
 
@@ -96,7 +97,9 @@ private struct UserProfileFormContent: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .xkalaCard()
                 .padding(.horizontal, 16)
-                .padding(.bottom, 24)
+
+                InsightsView(isEmbedded: true)
+                    .padding(.bottom, 24)
             }
         }
         .sheet(isPresented: $showBirthDateSheet) {

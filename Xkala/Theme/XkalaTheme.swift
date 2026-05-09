@@ -6,6 +6,14 @@ enum XkalaTheme {
     static let stroke = Color.white.opacity(0.06)
     static let accent = Color(hex: "#7E337C")
     static let mint = Color(hex: "#71B5A0")
+
+    /// Barras “Sesiones” en insights (contraste fuerte sobre verde oscuro; evita confusión con `accent`).
+    static let chartSessions = Color(hex: "#FF9A5C")
+
+    /// Turquesa: icono de entrenamiento/rocódromo (iconClimbingShoes)
+    static let sessionTraining = Color(hex: "#24FFF8")
+    /// Amarillo: icono de roca/montaña (iconMountain)
+    static let sessionClimbing = Color(hex: "#FFFF24")
 }
 
 struct XkalaCard: ViewModifier {

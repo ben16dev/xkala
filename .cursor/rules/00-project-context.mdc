@@ -18,11 +18,17 @@ Modelo:
 Objetivo:
 Seguir el progreso del usuario, no solo registrar entrenamientos.
 
+Estadísticas:
+- Existe `StatsView` (globales); métricas siempre **derivadas**, no persistir agregados ni PRs
+- Calculadoras puras: `StatsCalculator`, `ExerciseProgressCalculator`; vistas con poca lógica
+- Récords recientes = última **mejora estricta** de máximo histórico por ejercicio (cronológico; empates posteriores no cuentan); reps, seconds, loadKg según calculadora
+
 Reglas clave:
 - No romper el histórico
 - Evitar duplicados de Exercise
 - No persistir estadísticas derivadas todavía
 - Separar lógica de cálculo, persistencia y UI
+- Estadísticas globales separadas del detalle por ejercicio (`ExerciseDetailView`)
 
 Forma de trabajar:
 - Cambios pequeños y verificables

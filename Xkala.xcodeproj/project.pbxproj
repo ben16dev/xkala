@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		B7C9AF012F96AD2400368737 /* Charts in Frameworks */ = {isa = PBXBuildFile; fileRef = B7C9AF002F96AD2400368737 /* Charts */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		A9E80E062F96AD2400368736 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -19,6 +23,7 @@
 /* Begin PBXFileReference section */
 		A9AA92FB2F5B470A0038CD64 /* Xkala.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Xkala.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A9E80E022F96AD2400368736 /* XkalaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = XkalaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B7C9AF002F96AD2400368737 /* Charts */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Charts; path = System/Library/Frameworks/Charts.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -39,6 +44,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B7C9AF012F96AD2400368737 /* Charts in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -52,12 +58,21 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		A935EEEB2FAF46750056D35E /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				B7C9AF002F96AD2400368737 /* Charts */,
+			);
+			name = "Recovered References";
+			sourceTree = "<group>";
+		};
 		A9AA92F22F5B47090038CD64 = {
 			isa = PBXGroup;
 			children = (
 				A9AA92FD2F5B470A0038CD64 /* Xkala */,
 				A9E80E032F96AD2400368736 /* XkalaTests */,
 				A9AA92FC2F5B470A0038CD64 /* Products */,
+				A935EEEB2FAF46750056D35E /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};

@@ -273,6 +273,7 @@ struct AddExerciseView: View {
             isImporting = false
         }
     }
+
 }
 
 private struct NewExerciseView: View {
@@ -285,7 +286,7 @@ private struct NewExerciseView: View {
     @State private var loadAllowed: Bool = true
     @State private var notes: String = ""
 
-    private let categories = ["Hangboard", "Fuerza", "Resistencia", "Core", "Técnica", "Movilidad", "Otros"]
+    private let categories = ["Hangboard", "Fuerza", "Resistencia", "Core", "Calentamiento", "Campus", "Test", "Movilidad", "Otros"]
 
     var body: some View {
         Form {

@@ -9,7 +9,8 @@ struct Xkala: App {
             Exercise.self,
             WorkoutEntry.self,
             SetRecord.self,
-            UserProfile.self
+            UserProfile.self,
+            ClimbingSessionData.self
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         return try! ModelContainer(for: schema, configurations: [modelConfiguration])

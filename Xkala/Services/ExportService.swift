@@ -29,6 +29,7 @@ struct SetRecordDTO: Codable {
 
 // MARK: - Servicio
 
+@MainActor
 enum ExportService {
     static func export(context: ModelContext) throws -> Data {
         let descriptor = FetchDescriptor<WorkoutDay>(

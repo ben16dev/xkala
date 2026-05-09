@@ -1,198 +1,25 @@
 import SwiftUI
+import SwiftData
 
-private let xkalaCalendarLocale = Locale(identifier: "es_ES")
-private let xkalaCalendar: Calendar = {
-    var cal = Calendar.current
-    cal.locale = xkalaCalendarLocale
-    cal.firstWeekday = 2 // lunes
-    return cal
-}()
+// MARK: - Grid (compartido con ContentView para `daysInVisibleMonthWithLeadingBlanks`)
 
-// MARK: - Calendar summaries (auxiliares, sin lógica de UI)
-
-enum CalendarDayCompletionState: Equatable {
-    case empty
-    case partial
-    case complete
-}
-
-enum CalendarDayLoadLevel: Equatable {
-    case none
-    case low
-    case medium
-    case high
-}
-
-struct CalendarDaySummary: Equatable {
-    let completionState: CalendarDayCompletionState
-    let loadLevel: CalendarDayLoadLevel
-    let dailyLoad: Int
-}
-
-struct CalendarSummaryCalculator {
-    static func calculateSummaries(for workouts: [WorkoutDay]) -> [Date: CalendarDaySummary] {
-        let cal = Calendar.current
-
-        struct Accumulator {
-            var hasValidEntry: Bool = false
-            var allValidDone: Bool = true
-            var dailyLoad: Int = 0
-        }
-
-        var accByDate: [Date: Accumulator] = [:]
-
-        for workout in workouts {
-            let dayKey = cal.startOfDay(for: workout.date)
-            var acc = accByDate[dayKey] ?? Accumulator()
-
-            for entry in workout.entries {
-                let validSetsCount = validSetsCountForEntry(entry)
-                guard validSetsCount > 0 else {
-                    continue
-                }
-
-                acc.hasValidEntry = true
-                if entry.isDone == false {
-                    acc.allValidDone = false
-                }
-
-                acc.dailyLoad += entry.intensity * validSetsCount
-            }
-
-            accByDate[dayKey] = acc
-        }
-
-        var result: [Date: CalendarDaySummary] = [:]
-        for (dayKey, acc) in accByDate {
-            guard acc.hasValidEntry else { continue }
-
-            let completionState: CalendarDayCompletionState = acc.allValidDone ? .complete : .partial
-            let loadLevel: CalendarDayLoadLevel = loadLevel(for: acc.dailyLoad)
-
-            result[dayKey] = CalendarDaySummary(
-                completionState: completionState,
-                loadLevel: loadLevel,
-                dailyLoad: acc.dailyLoad
-            )
-        }
-
-        return result
+enum XkalaMonthGrid {
+    /// Calendario para rejilla: mismo huso que el sistema, semana empieza en lunes.
+    static var calendarForGrid: Calendar {
+        var cal = Calendar.current
+        cal.firstWeekday = 2
+        return cal
     }
 
-    private static func validSetsCountForEntry(_ entry: WorkoutEntry) -> Int {
-        switch entry.exercise.modeEnum {
-        case .reps:
-            return entry.sets.filter { ($0.reps ?? 0) > 0 }.count
-        case .seconds:
-            return entry.sets.filter { ($0.seconds ?? 0) > 0 }.count
-        }
-    }
-
-    private static func loadLevel(for dailyLoad: Int) -> CalendarDayLoadLevel {
-        if dailyLoad <= 0 { return .none }
-
-        switch dailyLoad {
-        case 1...3:
-            return .low
-        case 4...6:
-            return .medium
-        default:
-            return .high
-        }
-    }
-}
-
-struct WorkoutCalendarView: View {
-    let workouts: [WorkoutDay]
-    let onSelectDate: (Date) -> Void
-
-    @State private var displayedMonth = Date()
-
-    var body: some View {
-        let summariesByDate = CalendarSummaryCalculator.calculateSummaries(for: workouts)
-
-        VStack(spacing: 12) {
-            CalendarHeaderView(displayedMonth: displayedMonth) { newMonth in
-                displayedMonth = newMonth
-            }
-
-            CalendarGridView(
-                onSelectDate: onSelectDate,
-                displayedMonth: displayedMonth,
-                summariesByDate: summariesByDate
-            )
-        }
-        .padding()
-    }
-}
-
-private struct CalendarHeaderView: View {
-    let displayedMonth: Date
-    let onChangeMonth: (Date) -> Void
-
-    private var calendar: Calendar { xkalaCalendar }
-
-    private var monthTitle: String {
-        let df = DateFormatter()
-        df.locale = xkalaCalendarLocale
-        df.calendar = calendar
-        df.setLocalizedDateFormatFromTemplate("LLLL yyyy")
-        return df.string(from: displayedMonth)
-    }
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Button {
-                shiftMonth(by: -1)
-            } label: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 16, weight: .semibold))
-                    .frame(width: 28, height: 28)
-            }
-            .accessibilityLabel("Mes anterior")
-
-            Text(monthTitle)
-                .font(.headline)
-                .lineLimit(1)
-                .frame(maxWidth: .infinity)
-
-            Button {
-                shiftMonth(by: 1)
-            } label: {
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 16, weight: .semibold))
-                    .frame(width: 28, height: 28)
-            }
-            .accessibilityLabel("Mes siguiente")
-        }
-    }
-
-    private func shiftMonth(by amount: Int) {
-        let cal = calendar
-        let shifted = cal.date(byAdding: .month, value: amount, to: displayedMonth) ?? displayedMonth
-        let normalized = cal.date(from: cal.dateComponents([.year, .month], from: shifted)) ?? shifted
-        onChangeMonth(normalized)
-    }
-}
-
-private struct CalendarGridView: View {
-    let onSelectDate: (Date) -> Void
-    let displayedMonth: Date
-    let summariesByDate: [Date: CalendarDaySummary]
-
-    private var calendar: Calendar { xkalaCalendar }
-
-    private var gridColumns: [GridItem] {
-        Array(repeating: GridItem(.flexible(), spacing: 8), count: 7)
-    }
-
-    private func monthDates(for baseDate: Date, calendar: Calendar) -> [Date?] {
-        let startOfMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: baseDate))!
+    /// Celdas del mes visible: `nil` = hueco antes/después del mes; `Date` = inicio de ese día en `calendarForGrid`.
+    static func daysInVisibleMonthWithLeadingBlanks(visibleMonth: Date) -> [Date?] {
+        let calendar = calendarForGrid
+        guard let interval = calendar.dateInterval(of: .month, for: visibleMonth) else { return [] }
+        let startOfMonth = interval.start
         let range = calendar.range(of: .day, in: .month, for: startOfMonth)!
 
         let firstWeekday = calendar.firstWeekday
         let startWeekday = calendar.component(.weekday, from: startOfMonth)
-
         let offset = (startWeekday - firstWeekday + 7) % 7
         let daysInMonth = range.count
 
@@ -211,44 +38,195 @@ private struct CalendarGridView: View {
                 var comps = calendar.dateComponents([.year, .month], from: startOfMonth)
                 comps.day = day
                 let date = calendar.date(from: comps)!
-                cells.append(date)
+                cells.append(calendar.startOfDay(for: date))
             }
         }
 
         return cells
     }
+}
 
-    private func monthTitle(for baseDate: Date, calendar: Calendar) -> String {
+// MARK: - Clasificación conservadora rocódromo / roca (solo lectura de datos existentes)
+
+private enum CalendarSessionVenueKind {
+    /// Sesión en roca (exterior).
+    case outdoor
+    /// Rocódromo / indoor / no clasificada como roca.
+    case indoor
+}
+
+private enum XkalaCalendarSessionClassifier {
+    private static let foldingLocale = Locale(identifier: "es_ES")
+
+    private static func normalizeText(_ s: String) -> String {
+        s.lowercased().folding(options: .diacriticInsensitive, locale: foldingLocale)
+    }
+
+    /// Palabras clave de roca; se normalizan igual que el blob (`climbIdentifier` excluido a propósito).
+    private static let outdoorNeedles: [String] = Array(
+        Set(
+            [
+                "roca", "outdoor", "montana", "montaña", "segovia",
+                "fuertiduena", "fuentidueña", "fuenti", "peñalara", "pedriza",
+            ].map { normalizeText($0) }
+        )
+    )
+    /// Señales explícitas de rocódromo/indoor.
+    private static let indoorNeedles: [String] = Array(
+        Set(
+            [
+                "rocodromo", "rocódromo", "indoor", "gym", "entreno", "training",
+            ].map { normalizeText($0) }
+        )
+    )
+
+    private static func normalizedBlob(parts: [String]) -> String {
+        normalizeText(parts.joined(separator: " "))
+    }
+
+    private static func workoutTextParts(_ workout: WorkoutDay) -> [String] {
+        var parts: [String] = [workout.name, workout.notes]
+        if let derived = workout.categoriesBasedName {
+            parts.append(derived)
+        }
+        return parts
+    }
+
+    private static func entryTextParts(_ entry: WorkoutEntry) -> [String] {
+        var parts: [String] = [
+            entry.exercise.name,
+            entry.exercise.category,
+            entry.exercise.notes,
+            entry.entryNotes,
+        ]
+        if let kind = entry.climbKind {
+            parts.append(kind)
+        }
+        return parts
+    }
+
+    /// Prioriza `sessionType` de la sesión; usa texto solo como fallback para datos legacy.
+    private static func workoutSignals(_ workout: WorkoutDay) -> (hasOutdoor: Bool, hasIndoor: Bool) {
+        let sessionTypeBlob = normalizeText(workout.sessionType)
+        if sessionTypeBlob.contains("climbing") || sessionTypeBlob.contains("roca") {
+            return (true, false)
+        }
+        if sessionTypeBlob.contains("training") || sessionTypeBlob.contains("entreno") {
+            return (false, true)
+        }
+        if workout.sessionType == WorkoutDay.SessionType.climbing.rawValue {
+            return (true, false)
+        }
+        if workout.sessionType == WorkoutDay.SessionType.training.rawValue {
+            return (false, true)
+        }
+
+        let workoutBlob = normalizedBlob(parts: workoutTextParts(workout))
+        var hasOutdoor = containsAnyNeedle(workoutBlob, needles: outdoorNeedles)
+        var hasIndoor = containsAnyNeedle(workoutBlob, needles: indoorNeedles)
+
+        for entry in workout.entries {
+            let entryBlob = normalizedBlob(parts: entryTextParts(entry))
+            if containsAnyNeedle(entryBlob, needles: outdoorNeedles) {
+                hasOutdoor = true
+            }
+            if containsAnyNeedle(entryBlob, needles: indoorNeedles) {
+                hasIndoor = true
+            }
+        }
+
+        // Regla conservadora: cualquier sesión no clasificada como roca cuenta como indoor.
+        if !hasOutdoor {
+            hasIndoor = true
+        }
+
+        return (hasOutdoor, hasIndoor)
+    }
+
+    private static func containsAnyNeedle(_ blob: String, needles: [String]) -> Bool {
+        needles.contains { blob.contains($0) }
+    }
+
+    /// Agrega flags de **todas** las sesiones cuyo día calendario coincide con `dayKey`.
+    static func venueFlags(forDayKey dayKey: Date, workouts: [WorkoutDay]) -> (hasOutdoor: Bool, hasIndoor: Bool) {
+        let cal = Calendar.current
+        var hasOutdoor = false
+        var hasIndoor = false
+        for w in workouts where cal.isDate(w.date, inSameDayAs: dayKey) {
+            let signals = workoutSignals(w)
+            hasOutdoor = hasOutdoor || signals.hasOutdoor
+            hasIndoor = hasIndoor || signals.hasIndoor
+        }
+        return (hasOutdoor, hasIndoor)
+    }
+}
+
+// MARK: - Vista mensual
+
+struct WorkoutCalendarView: View {
+    let visibleMonth: Date
+    /// Celdas del mes (`nil` = hueco); debe corresponder a `visibleMonth` (p. ej. `daysInVisibleMonthWithLeadingBlanks` en `ContentView`).
+    let monthGridCells: [Date?]
+    let selectedDate: Date
+    /// Todas las sesiones (misma fuente que la lista del día); se usa para iconos por tipo sin tocar el modelo.
+    let workouts: [WorkoutDay]
+    let onSelectDay: (Date) -> Void
+    let onPreviousMonth: () -> Void
+    let onNextMonth: () -> Void
+
+    private var gridCalendar: Calendar { XkalaMonthGrid.calendarForGrid }
+
+    private var monthTitle: String {
         let df = DateFormatter()
-        df.locale = xkalaCalendarLocale
-        df.calendar = calendar
+        df.locale = Locale(identifier: "es_ES")
+        df.calendar = gridCalendar
         df.setLocalizedDateFormatFromTemplate("LLLL yyyy")
-        return df.string(from: baseDate)
+        return df.string(from: visibleMonth)
     }
 
     private var weekdaySymbols: [String] {
-        let symbols = calendar.shortWeekdaySymbols
-        let firstIndex = firstWeekdayIndex
+        let symbols = gridCalendar.shortWeekdaySymbols
+        let firstIndex = gridCalendar.firstWeekday - 1
         return (0..<symbols.count).map { offset in
             symbols[(firstIndex + offset) % symbols.count]
         }
     }
 
-    private var firstWeekdayIndex: Int {
-        let firstWeekday = calendar.firstWeekday
-        return firstWeekday - 1
+    private var gridColumns: [GridItem] {
+        Array(repeating: GridItem(.flexible(), spacing: 6), count: 7)
     }
 
     var body: some View {
-        let cal = calendar
-        let today = cal.startOfDay(for: Date())
-        let shouldHighlightToday = cal.isDate(today, equalTo: displayedMonth, toGranularity: .month)
+        let todayStart = Calendar.current.startOfDay(for: Date())
+        let selectedStart = Calendar.current.startOfDay(for: selectedDate)
 
-        let monthTitle = monthTitle(for: displayedMonth, calendar: cal)
-        let monthDates = monthDates(for: displayedMonth, calendar: cal)
+        VStack(spacing: 10) {
+            HStack(spacing: 12) {
+                Button(action: onPreviousMonth) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 16, weight: .semibold))
+                        .frame(width: 36, height: 36)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Mes anterior")
 
-        VStack(spacing: 8) {
-            LazyVGrid(columns: gridColumns, spacing: 8) {
+                Text(monthTitle)
+                    .font(.headline)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity)
+
+                Button(action: onNextMonth) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 16, weight: .semibold))
+                        .frame(width: 36, height: 36)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Mes siguiente")
+            }
+
+            LazyVGrid(columns: gridColumns, spacing: 6) {
                 ForEach(weekdaySymbols.indices, id: \.self) { i in
                     Text(weekdaySymbols[i])
                         .font(.caption)
@@ -257,20 +235,16 @@ private struct CalendarGridView: View {
                 }
             }
 
-            LazyVGrid(columns: gridColumns, spacing: 8) {
-                ForEach(monthDates.indices, id: \.self) { index in
-                    let date = monthDates[index]
-                    let dayKey = date.map { cal.startOfDay(for: $0) }
-                    let summary = dayKey.flatMap { summariesByDate[$0] }
-
-                    DayCellView(
-                        date: date,
-                        summary: summary,
-                        isToday: date.map { cal.startOfDay(for: $0) == today && shouldHighlightToday } ?? false
-                    ) {
-                        guard let date, summary != nil else { return }
-                        onSelectDate(cal.startOfDay(for: date))
-                    }
+            LazyVGrid(columns: gridColumns, spacing: 6) {
+                ForEach(monthGridCells.indices, id: \.self) { index in
+                    let cellDate = monthGridCells[index]
+                    WorkoutCalendarDayCell(
+                        cellDate: cellDate,
+                        todayStart: todayStart,
+                        selectedStart: selectedStart,
+                        workouts: workouts,
+                        onSelect: onSelectDay
+                    )
                 }
             }
         }
@@ -278,84 +252,118 @@ private struct CalendarGridView: View {
     }
 }
 
-private struct DayCellView: View {
-    let date: Date?
-    let summary: CalendarDaySummary?
-    let isToday: Bool
-    let onTap: () -> Void
+// MARK: - Celda
+
+private struct WorkoutCalendarDayCell: View {
+    let cellDate: Date?
+    let todayStart: Date
+    let selectedStart: Date
+    let workouts: [WorkoutDay]
+    let onSelect: (Date) -> Void
+
+    private var dayKey: Date? {
+        guard let cellDate else { return nil }
+        return Calendar.current.startOfDay(for: cellDate)
+    }
+
+    private var venueFlags: (hasOutdoor: Bool, hasIndoor: Bool) {
+        guard let dayKey else { return (false, false) }
+        return XkalaCalendarSessionClassifier.venueFlags(forDayKey: dayKey, workouts: workouts)
+    }
+
+    private var hasWorkout: Bool {
+        let f = venueFlags
+        return f.hasOutdoor || f.hasIndoor
+    }
+
+    private var isSelected: Bool {
+        guard let dayKey else { return false }
+        return dayKey == selectedStart
+    }
+
+    private var isToday: Bool {
+        guard let dayKey else { return false }
+        return dayKey == todayStart
+    }
 
     private var dayNumberText: String {
-        guard let date else { return "" }
-        return String(Calendar.current.component(.day, from: date))
+        guard let cellDate else { return "" }
+        return String(Calendar.current.component(.day, from: cellDate))
+    }
+
+    private static let sessionIconFrame: CGFloat = 16
+
+    @ViewBuilder
+    private var sessionTypeIcons: some View {
+        let f = venueFlags
+        if f.hasOutdoor && f.hasIndoor {
+            HStack(spacing: 2) {
+                calendarSessionIcon("iconClimbingShoes", color: XkalaTheme.sessionTraining)
+                calendarSessionIcon("iconMountain", color: XkalaTheme.sessionClimbing)
+            }
+        } else if f.hasOutdoor {
+            calendarSessionIcon("iconMountain", color: XkalaTheme.sessionClimbing)
+        } else if f.hasIndoor {
+            calendarSessionIcon("iconClimbingShoes", color: XkalaTheme.sessionTraining)
+        }
+    }
+
+    /// Template + color explícito para no heredar el tinte del `Button` sobre el icono.
+    private func calendarSessionIcon(_ assetName: String, color: Color) -> some View {
+        Image(assetName)
+            .renderingMode(.template)
+            .resizable()
+            .scaledToFit()
+            .frame(width: Self.sessionIconFrame, height: Self.sessionIconFrame)
+            .foregroundStyle(color)
+    }
+
+    /// Borde discreto para hoy; si el día está seleccionado, solo el resalte de selección.
+    private var borderColor: Color {
+        if isSelected { return XkalaTheme.accent.opacity(0.95) }
+        if isToday { return Color.secondary.opacity(0.55) }
+        return Color.clear
+    }
+
+    private var borderWidth: CGFloat {
+        if isSelected { return 2 }
+        if isToday { return 1 }
+        return 0
     }
 
     var body: some View {
-        ZStack {
-            if date == nil {
+        Group {
+            if cellDate == nil {
                 Color.clear
+                    .frame(minHeight: 48)
             } else {
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(loadBackgroundColor)
+                Button {
+                    guard let dayKey else { return }
+                    onSelect(dayKey)
+                } label: {
+                    VStack(spacing: 3) {
+                        Text(dayNumberText)
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(.primary)
 
-                VStack(spacing: 4) {
-                    Text(dayNumberText)
-                        .font(.subheadline)
-                        .foregroundStyle(cellForegroundColor)
-
-                    completionIndicator
+                        if hasWorkout {
+                            sessionTypeIcons
+                        } else {
+                            Color.clear.frame(height: Self.sessionIconFrame)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(isSelected ? XkalaTheme.accent.opacity(0.22) : Color.clear)
+                    )
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .strokeBorder(borderColor, lineWidth: borderWidth)
+                    }
                 }
+                .buttonStyle(.plain)
             }
-        }
-        .frame(height: 44)
-        .contentShape(Rectangle())
-        .allowsHitTesting(date != nil && summary != nil)
-        .overlay {
-            if isToday {
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(Color.accentColor, lineWidth: 2)
-            }
-        }
-        .onTapGesture { onTap() }
-    }
-
-    private var cellForegroundColor: some ShapeStyle {
-        if isToday { return Color.primary }
-        if summary != nil { return Color.primary }
-        return Color.secondary
-    }
-
-    private var loadBackgroundColor: Color {
-        guard let loadLevel = summary?.loadLevel else { return Color.clear }
-
-        switch loadLevel {
-        case .none:
-            return Color.clear
-        case .low:
-            return Color.accentColor.opacity(0.12)
-        case .medium:
-            return Color.accentColor.opacity(0.30)
-        case .high:
-            return Color.accentColor.opacity(0.55)
-        }
-    }
-
-    @ViewBuilder
-    private var completionIndicator: some View {
-        if let completionState = summary?.completionState {
-            switch completionState {
-            case .empty:
-                EmptyView()
-            case .partial:
-                Circle()
-                    .stroke(Color.accentColor.opacity(0.85), lineWidth: 1.6)
-                    .frame(width: 6, height: 6)
-            case .complete:
-                Circle()
-                    .fill(Color.accentColor)
-                    .frame(width: 6, height: 6)
-            }
-        } else {
-            EmptyView()
         }
     }
 }

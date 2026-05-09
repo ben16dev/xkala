@@ -25,6 +25,14 @@ final class WorkoutDay {
     /// Notas generales del día.
     var notes: String
 
+    /// Tipo de sesión. Valores válidos: "training" | "climbing".
+    /// Default "training" para compatibilidad con datos existentes.
+    var sessionType: String = "training"
+
+    /// Datos específicos de sesión de roca. Solo presente cuando sessionType == "climbing".
+    @Relationship(deleteRule: .cascade)
+    var climbingData: ClimbingSessionData?
+
     /// Entries asociados a la sesión.
     @Relationship(deleteRule: .cascade)
     var entries: [WorkoutEntry]
@@ -35,7 +43,9 @@ final class WorkoutDay {
         notes: String = "",
         entries: [WorkoutEntry] = [],
         startedAt: Date? = nil,
-        endedAt: Date? = nil
+        endedAt: Date? = nil,
+        sessionType: String = "training",
+        climbingData: ClimbingSessionData? = nil
     ) {
         self.date = date
         self.name = name
@@ -43,11 +53,36 @@ final class WorkoutDay {
         self.entries = entries
         self.startedAt = startedAt
         self.endedAt = endedAt
+        self.sessionType = sessionType
+        self.climbingData = climbingData
     }
 
     /// Clave de día (inicio del día) útil para agrupar en estadísticas futuras.
     var dayKey: Date {
         Calendar.current.startOfDay(for: date)
+    }
+}
+
+
+// MARK: - ClimbingSessionData
+
+@Model
+final class ClimbingSessionData {
+    var location: String
+    var sector: String
+    var routesCount: Int
+    var grades: [String]
+
+    init(
+        location: String = "",
+        sector: String = "",
+        routesCount: Int = 0,
+        grades: [String] = []
+    ) {
+        self.location = location
+        self.sector = sector
+        self.routesCount = routesCount
+        self.grades = grades
     }
 }
 
@@ -169,32 +204,80 @@ extension WorkoutEntry {
     }
 }
 
+// MARK: - WorkoutDay session type
+
+extension WorkoutDay {
+    enum SessionType: String {
+        case training = "training"
+        case climbing = "climbing"
+    }
+
+    var sessionTypeEnum: SessionType {
+        SessionType(rawValue: sessionType) ?? .training
+    }
+
+    /// Nombre del asset de imagen para el tipo de sesión.
+    var sessionIcon: String {
+        sessionTypeEnum == .climbing ? "iconMountain" : "iconClimbingShoes"
+    }
+
+    /// Garantiza que climbingData existe si y solo si sessionType == "climbing".
+    /// Llamar tras cambiar sessionType.
+    func applySessionTypeConsistency() {
+        if sessionType == "climbing", climbingData == nil {
+            climbingData = ClimbingSessionData()
+        } else if sessionType == "training" {
+            climbingData = nil
+        }
+    }
+}
+
+
 // MARK: - WorkoutDay display naming (sin tocar persistencia)
 extension WorkoutDay {
-    /// Nombre alternativo para la UI cuando `name` está vacío.
-    /// Genera un string a partir de categorías únicas presentes en `entries`.
-    ///
-    /// Regla:
-    /// - Unique: categorías únicas de `entry.exercise.category`
-    /// - Orden: alfabético
-    /// - Join: " · "
-    /// - Si no hay categorías válidas: devuelve `nil` (para que la UI use su fallback discreto).
-    var categoriesBasedName: String? {
+    var physicalCategories: [String] {
+        let excluded = ["bloque", "bloques", "travesia", "travesias"]
+
         let categories = Set(
-            entries.compactMap { entry in
-                let trimmed = entry.exercise.category
+            entries.compactMap { entry -> String? in
+                let category = entry.exercise.category
                     .trimmingCharacters(in: .whitespacesAndNewlines)
-                return trimmed.isEmpty ? nil : trimmed
+                guard !category.isEmpty else { return nil }
+
+                let normalized = category
+                    .lowercased()
+                    .folding(options: .diacriticInsensitive, locale: .current)
+
+                return excluded.contains(normalized) ? nil : category
             }
         )
 
-        guard !categories.isEmpty else { return nil }
-
-        let sorted = categories.sorted { a, b in
-            a.localizedCaseInsensitiveCompare(b) == .orderedAscending
+        return categories.sorted {
+            $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
         }
+    }
 
-        return sorted.joined(separator: " · ")
+    var sessionKindName: String? {
+        let hasPhysical = !physicalCategories.isEmpty
+        let hasBlock = entries.contains { $0.isBlock }
+        let hasTraverse = entries.contains { $0.isTraverse }
+
+        if hasPhysical && hasBlock { return "Físico y Boulder" }
+        if hasPhysical && hasTraverse { return "Físico y Travesía" }
+        if hasPhysical { return "Físico" }
+        if hasBlock { return "Boulder" }
+        if hasTraverse { return "Travesía" }
+
+        return nil
+    }
+
+    var categoriesSummary: String? {
+        guard !physicalCategories.isEmpty else { return nil }
+        return physicalCategories.joined(separator: " · ")
+    }
+
+    var categoriesBasedName: String? {
+        sessionKindName
     }
 }
 

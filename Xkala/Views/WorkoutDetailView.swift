@@ -9,6 +9,9 @@ struct WorkoutDetailView: View {
 
     @State private var selectedEntry: WorkoutEntry?
     @State private var now: Date = Date()
+    @State private var showManualInput: Bool = false
+    @State private var manualInput: String = ""
+    @State private var dotPulsing: Bool = false
 
     private let durationTick = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
@@ -17,6 +20,15 @@ struct WorkoutDetailView: View {
             Section("Sesión") {
                 VStack(spacing: 12) {
                     TextField("Nombre del entreno", text: $workout.name)
+
+                    Picker("Tipo", selection: $workout.sessionType) {
+                        Text("Entrenamiento").tag("training")
+                        Text("Roca").tag("climbing")
+                    }
+                    .pickerStyle(.segmented)
+                    .onChange(of: workout.sessionType) { _, _ in
+                        workout.applySessionTypeConsistency()
+                    }
 
                     DatePicker(
                         "Fecha",
@@ -34,7 +46,12 @@ struct WorkoutDetailView: View {
             }
 
             Section("Sensaciones") {
-                TextField("Cómo te has encontrado…", text: $workout.notes, axis: .vertical)
+                TextField(
+                    "",
+                    text: $workout.notes,
+                    prompt: Text(workout.categoriesSummary ?? "Cómo te has encontrado…"),
+                    axis: .vertical
+                )
                     .lineLimit(3...8)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .xkalaCard()
@@ -43,46 +60,52 @@ struct WorkoutDetailView: View {
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
             }
 
-            Section("Ejercicios") {
-                if workout.entries.isEmpty {
-                    VStack(spacing: 10) {
-                        Image(systemName: "square.and.pencil")
-                            .font(.system(size: 28))
-                            .foregroundStyle(.secondary)
+            if workout.sessionTypeEnum == .climbing {
+                if let data = workout.climbingData {
+                    ClimbingSessionEditorView(data: data)
+                }
+            } else {
+                Section("Ejercicios") {
+                    if workout.entries.isEmpty {
+                        VStack(spacing: 10) {
+                            Image(systemName: "square.and.pencil")
+                                .font(.system(size: 28))
+                                .foregroundStyle(.secondary)
 
-                        Text("Aún no hay ejercicios")
-                            .font(.headline)
+                            Text("Aún no hay ejercicios")
+                                .font(.headline)
 
-                        Text("Pulsa “Añadir” para empezar.")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 6)
-                    .xkalaCard()
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-                } else {
-                    ForEach(workout.entries) { entry in
-                        Button {
-                            selectedEntry = entry
-                        } label: {
-                            EntryCardContent(entry: entry)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .xkalaCard()
+                            Text("Pulsa \u{201C}Añadir\u{201D} para empezar.")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
                         }
-                        .buttonStyle(XkalaPressableRowStyle())
-                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                            Button(role: .destructive) {
-                                deleteEntry(entry)
-                            } label: {
-                                Label("Borrar", systemImage: "trash")
-                            }
-                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 6)
+                        .xkalaCard()
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
                         .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                    } else {
+                        ForEach(workout.entries) { entry in
+                            Button {
+                                selectedEntry = entry
+                            } label: {
+                                EntryCardContent(entry: entry)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .xkalaCard()
+                            }
+                            .buttonStyle(XkalaPressableRowStyle())
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                Button(role: .destructive) {
+                                    deleteEntry(entry)
+                                } label: {
+                                    Label("Borrar", systemImage: "trash")
+                                }
+                            }
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
+                            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                        }
                     }
                 }
             }
@@ -94,16 +117,21 @@ struct WorkoutDetailView: View {
             ExerciseDetailView(entry: entry)
         }
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                NavigationLink {
-                    AddExerciseView(workout: workout)
-                } label: {
-                    XkalaActionButton(
-                        title: "Añadir",
-                        systemImage: "plus"
-                    )
+            if workout.sessionTypeEnum == .training {
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink {
+                        AddExerciseView(workout: workout)
+                    } label: {
+                        XkalaActionButton(
+                            title: "Añadir",
+                            systemImage: "plus"
+                        )
+                    }
                 }
             }
+        }
+        .onAppear {
+            workout.applySessionTypeConsistency()
         }
         .onReceive(durationTick) { _ in
             // Solo refrescamos si está en curso.
@@ -129,9 +157,16 @@ struct WorkoutDetailView: View {
 
     // MARK: - Timer controls
 
+    private var elapsedSeconds: Int {
+        // `now` provoca el re-render; SessionTimeFormatter.seconds usa Date() internamente.
+        _ = now
+        return SessionTimeFormatter.seconds(from: workout)
+    }
+
     private var timerControlsCard: some View {
         VStack(spacing: 10) {
             if workout.startedAt == nil {
+                // — Sin iniciar —
                 Button {
                     let started = Date()
                     workout.startedAt = started
@@ -139,62 +174,197 @@ struct WorkoutDetailView: View {
                     now = started
                     try? context.save()
                 } label: {
-                    XkalaActionButton(
-                        title: "Iniciar entrenamiento",
-                        systemImage: "play.fill"
-                    )
+                    XkalaActionButton(title: "Iniciar entrenamiento", systemImage: "play.fill")
                 }
                 .buttonStyle(.plain)
+
+                Button {
+                    showManualInput.toggle()
+                } label: {
+                    Text("Añadir duración manual")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+
+                if showManualInput {
+                    manualInputRow
+                }
+
             } else if workout.endedAt == nil {
+                // — En curso —
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(Color.green)
+                        .frame(width: 8, height: 8)
+                        .opacity(dotPulsing ? 0.25 : 1.0)
+                        .animation(
+                            .easeInOut(duration: 0.9).repeatForever(autoreverses: true),
+                            value: dotPulsing
+                        )
+                        .onAppear { dotPulsing = true }
+                        .onDisappear { dotPulsing = false }
+
+                    Text("En curso")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+
+                Text(SessionTimeFormatter.formatActive(elapsedSeconds))
+                    .font(.system(.title2, design: .monospaced).bold())
+                    .monospacedDigit()
+                    .foregroundStyle(.primary)
+
+                HStack(spacing: 12) {
+                    Button {
+                        workout.endedAt = Date()
+                        now = Date()
+                        try? context.save()
+                    } label: {
+                        XkalaActionButton(title: "Finalizar", systemImage: "stop.fill")
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        workout.startedAt = nil
+                        workout.endedAt = nil
+                        try? context.save()
+                    } label: {
+                        XkalaActionButton(title: "Reiniciar", systemImage: "arrow.counterclockwise")
+                    }
+                    .buttonStyle(.plain)
+                }
+
+            } else {
+                // — Finalizado —
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Duración en curso")
+                    Text("Duración")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
 
-                    if let durationText {
-                        Text(durationText)
-                            .font(.headline)
-                            .foregroundStyle(.primary)
-                    }
+                    Text(SessionTimeFormatter.formatFinal(elapsedSeconds))
+                        .font(.system(.title2, design: .monospaced).bold())
+                        .monospacedDigit()
+                        .foregroundStyle(.primary)
                 }
 
-                Button {
-                    workout.endedAt = Date()
-                    now = Date()
-                    try? context.save()
-                } label: {
-                    XkalaActionButton(
-                        title: "Finalizar entrenamiento",
-                        systemImage: "stop.fill"
-                    )
-                }
-                .buttonStyle(.plain)
-            } else {
-                if let durationText {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Duración")
+                HStack(spacing: 12) {
+                    Button {
+                        workout.startedAt = nil
+                        workout.endedAt = nil
+                        showManualInput = false
+                        try? context.save()
+                    } label: {
+                        XkalaActionButton(title: "Reiniciar", systemImage: "arrow.counterclockwise")
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        showManualInput.toggle()
+                    } label: {
+                        Text("Editar")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
-                        Text(durationText)
-                            .font(.headline)
-                            .foregroundStyle(.primary)
                     }
+                    .buttonStyle(.plain)
+                }
+
+                if showManualInput {
+                    manualInputRow
                 }
             }
         }
     }
 
-    private var durationText: String? {
-        guard let startedAt = workout.startedAt else { return nil }
+    private var manualInputRow: some View {
+        HStack(spacing: 8) {
+            TextField("HH:MM (ej: 01:30)", text: $manualInput)
+                .keyboardType(.numbersAndPunctuation)
+                .font(.system(.body, design: .monospaced))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color(.secondarySystemBackground))
+                .clipShape(Capsule())
+                .onSubmit { applyManualInput() }
 
-        let seconds: TimeInterval
-        if let endedAt = workout.endedAt {
-            seconds = endedAt.timeIntervalSince(startedAt)
-        } else {
-            seconds = now.timeIntervalSince(startedAt)
+            Button {
+                applyManualInput()
+            } label: {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.title3)
+                    .foregroundStyle(.green)
+            }
+            .buttonStyle(.plain)
         }
+    }
 
-        return DurationFormatting.formatSpanish(duration: seconds)
+    private func applyManualInput() {
+        guard let totalSeconds = SessionTimeFormatter.parseInput(manualInput), totalSeconds > 0 else { return }
+        let base = workout.date
+        workout.startedAt = base
+        workout.endedAt = base.addingTimeInterval(TimeInterval(totalSeconds))
+        showManualInput = false
+        manualInput = ""
+        try? context.save()
+    }
+}
+
+// MARK: - Climbing session editor
+
+private struct ClimbingSessionEditorView: View {
+    @Bindable var data: ClimbingSessionData
+
+    var body: some View {
+        Section("Roca") {
+            VStack(spacing: 12) {
+                TextField("Ubicación", text: $data.location)
+
+                Divider()
+                    .background(.secondary.opacity(0.3))
+
+                TextField("Sector", text: $data.sector)
+
+                Divider()
+                    .background(.secondary.opacity(0.3))
+
+                Stepper(
+                    "Número de vías: \(data.routesCount)",
+                    value: $data.routesCount,
+                    in: 0...100
+                )
+
+                Divider()
+                    .background(.secondary.opacity(0.3))
+
+                TextField(
+                    "Grados separados por coma (ej: 6a, 6b+, 6c)",
+                    text: gradesTextBinding,
+                    axis: .vertical
+                )
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled(true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .xkalaCard()
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+        }
+    }
+
+    private var gradesTextBinding: Binding<String> {
+        Binding(
+            get: {
+                data.grades.joined(separator: ", ")
+            },
+            set: { newValue in
+                data.grades = newValue
+                    .split(separator: ",")
+                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+                    .filter { !$0.isEmpty }
+            }
+        )
     }
 }
 

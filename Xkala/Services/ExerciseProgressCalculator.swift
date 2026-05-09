@@ -7,6 +7,7 @@ struct ExerciseProgressSnapshot: Equatable {
     let comparisonText: String
     let trend: ProgressTrend
     let hasEnoughData: Bool
+    let hasPreviousComparableSession: Bool
     /// Texto "última vs mejor histórico". Vacío si no hay datos suficientes.
     let vsBestText: String
 }
@@ -66,6 +67,7 @@ struct ExerciseProgressCalculator {
                 comparisonText: "Sin datos suficientes",
                 trend: .none,
                 hasEnoughData: false,
+                hasPreviousComparableSession: false,
                 vsBestText: ""
             )
         }
@@ -178,8 +180,65 @@ struct ExerciseProgressCalculator {
             comparisonText: comparison.text,
             trend: comparison.trend,
             hasEnoughData: true,
+            hasPreviousComparableSession: previousComparableSession != nil,
             vsBestText: vsBestText
         )
+    }
+
+    /// Última sesión (cronológica) en la que hubo **mejora estricta** del máximo histórico previo dentro del mismo grupo comparable.
+    /// Empates con el máximo no generan un nuevo hito; usa la misma semántica que `compare` / `buildSessions` (reps, segundos, carga, bloque/travesía).
+    static func latestStrictPersonalRecord(
+        for exercise: Exercise,
+        in workouts: [WorkoutDay]
+    ) -> (sessionDate: Date, markText: String, workout: WorkoutDay, entry: WorkoutEntry)? {
+        let mode = exercise.modeEnum
+        let loadAllowed = exercise.loadAllowed
+        let intermittentHangboard = exercise.isIntermittentHangboardExercise
+        let sessions = buildSessions(
+            for: exercise,
+            contextEntry: nil,
+            mode: mode,
+            loadAllowed: loadAllowed,
+            intermittentHangboard: intermittentHangboard,
+            workouts: workouts
+        )
+        guard !sessions.isEmpty else { return nil }
+
+        let chronological = sessions.sorted { $0.workoutDate < $1.workoutDate }
+        var runningPeak: [String: CandidateSet] = [:]
+        var lastPRSession: [String: SessionBest] = [:]
+
+        for session in chronological {
+            let gid = strictPRGroupId(session)
+            if runningPeak[gid] == nil {
+                runningPeak[gid] = session.bestSet
+                lastPRSession[gid] = session
+                continue
+            }
+            guard let priorPeak = runningPeak[gid] else { continue }
+            let cmp = compare(
+                session.bestSet,
+                priorPeak,
+                mode: mode,
+                loadAllowed: loadAllowed,
+                intermittentHangboard: intermittentHangboard,
+                kind: session.comparisonKind
+            )
+            guard cmp == .orderedDescending else { continue }
+            runningPeak[gid] = session.bestSet
+            lastPRSession[gid] = session
+        }
+
+        guard let winner = lastPRSession.values.max(by: { $0.workoutDate < $1.workoutDate }) else {
+            return nil
+        }
+        let markText = formatBestSet(
+            winner.bestSet,
+            mode: mode,
+            loadAllowed: loadAllowed,
+            kind: winner.comparisonKind
+        )
+        return (winner.workoutDate, markText, winner.workout, winner.entry)
     }
 
     /// Misma base que `snapshot`: sesiones con `isDone`, mismo ejercicio, y al menos un set válido.
@@ -231,6 +290,167 @@ struct ExerciseProgressCalculator {
         )
     }
 
+    // MARK: - Progress chart (derived)
+
+    /// Serie temporal: una sesión válida por punto, mejor marca de esa sesión (misma base que `buildSessions` / `snapshot`).
+    static func progressChartModel(for entry: WorkoutEntry, in workouts: [WorkoutDay]) -> ExerciseProgressChartModel {
+        let exercise = entry.exercise
+        let mode = exercise.modeEnum
+        let loadAllowed = exercise.loadAllowed
+        let intermittentHangboard = exercise.isIntermittentHangboardExercise
+
+        let sessions: [SessionBest] = {
+            if entry.isBlock || entry.isTraverse {
+                let (_, routeKey) = comparisonInfo(for: entry)
+                let all = buildSessions(
+                    for: exercise,
+                    contextEntry: entry,
+                    mode: mode,
+                    loadAllowed: loadAllowed,
+                    intermittentHangboard: intermittentHangboard,
+                    workouts: workouts
+                )
+                if let key = routeKey {
+                    return all.filter { $0.comparisonKey == key }
+                }
+                return all
+            }
+            return buildSessions(
+                for: exercise,
+                contextEntry: entry,
+                mode: mode,
+                loadAllowed: loadAllowed,
+                intermittentHangboard: intermittentHangboard,
+                workouts: workouts
+            )
+        }()
+
+        return makeProgressChartModel(
+            from: sessions,
+            mode: mode,
+            loadAllowed: loadAllowed,
+            intermittentHangboard: intermittentHangboard
+        )
+    }
+
+    private static func makeProgressChartModel(
+        from sessions: [SessionBest],
+        mode: ExerciseMode,
+        loadAllowed: Bool,
+        intermittentHangboard: Bool
+    ) -> ExerciseProgressChartModel {
+        let sorted = sessions.sorted { a, b in
+            if a.workoutDate != b.workoutDate { return a.workoutDate < b.workoutDate }
+            return ObjectIdentifier(a.entry) < ObjectIdentifier(b.entry)
+        }
+
+        let points: [ExerciseProgressPoint] = sorted.map { session in
+            let value = chartScalar(
+                for: session.bestSet,
+                mode: mode,
+                loadAllowed: loadAllowed,
+                intermittentHangboard: intermittentHangboard,
+                comparisonKind: session.comparisonKind
+            )
+            let label = formatBestSet(
+                session.bestSet,
+                mode: mode,
+                loadAllowed: loadAllowed,
+                kind: session.comparisonKind
+            )
+            let id = "\(session.workoutDate.timeIntervalSince1970)-\(ObjectIdentifier(session.entry))"
+            return ExerciseProgressPoint(id: id, date: session.workoutDate, value: value, valueLabel: label)
+        }
+
+        let lowerIsBetter = sorted.first.map { $0.comparisonKind == .lowerIsBetter } ?? false
+        let yAxisTitle = chartYAxisLabel(
+            sessions: sorted,
+            mode: mode,
+            loadAllowed: loadAllowed,
+            intermittentHangboard: intermittentHangboard
+        )
+
+        let values = points.map(\.value)
+        let bestInSeries: Double? = {
+            guard !values.isEmpty else { return nil }
+            if lowerIsBetter { return values.min() }
+            return values.max()
+        }()
+
+        return ExerciseProgressChartModel(
+            points: points,
+            yAxisTitle: yAxisTitle,
+            lowerIsBetter: lowerIsBetter,
+            bestInSeries: bestInSeries
+        )
+    }
+
+    /// Eje Y alineado con la prioridad de `compare` (carga cuando aplica, luego métrica base o intentos).
+    private static func chartScalar(
+        for bestSet: CandidateSet,
+        mode: ExerciseMode,
+        loadAllowed: Bool,
+        intermittentHangboard: Bool,
+        comparisonKind: ComparisonKind
+    ) -> Double {
+        switch comparisonKind {
+        case .lowerIsBetter:
+            return Double(bestSet.reps ?? 0)
+        case .standard:
+            if intermittentHangboard {
+                if loadAllowed, shouldShowLoadKg(bestSet.loadKg) {
+                    return bestSet.loadKg ?? 0
+                }
+                return Double(bestSet.reps ?? 0)
+            }
+            if loadAllowed, shouldShowLoadKg(bestSet.loadKg) {
+                return bestSet.loadKg ?? 0
+            }
+            if loadAllowed {
+                switch mode {
+                case .reps:
+                    return Double(bestSet.reps ?? 0)
+                case .seconds:
+                    return Double(bestSet.seconds ?? 0)
+                }
+            }
+            switch mode {
+            case .reps:
+                return Double(bestSet.reps ?? 0)
+            case .seconds:
+                return Double(bestSet.seconds ?? 0)
+            }
+        }
+    }
+
+    private static func chartYAxisLabel(
+        sessions: [SessionBest],
+        mode: ExerciseMode,
+        loadAllowed: Bool,
+        intermittentHangboard: Bool
+    ) -> String {
+        guard let kind = sessions.first?.comparisonKind else { return "" }
+        if kind == .lowerIsBetter {
+            return "Intentos"
+        }
+        if intermittentHangboard {
+            let anyLoad = sessions.contains { session in
+                loadAllowed && shouldShowLoadKg(session.bestSet.loadKg)
+            }
+            return anyLoad ? "Carga (kg)" : "Rondas"
+        }
+        if loadAllowed {
+            let anyLoad = sessions.contains { shouldShowLoadKg($0.bestSet.loadKg) }
+            if anyLoad { return "Carga (kg)" }
+        }
+        switch mode {
+        case .reps:
+            return "Reps"
+        case .seconds:
+            return "Segundos"
+        }
+    }
+
     // MARK: - Private types
 
     /// Semántica de comparación entre sesiones.
@@ -248,6 +468,8 @@ struct ExerciseProgressCalculator {
     }
 
     private struct SessionBest {
+        let workout: WorkoutDay
+        let entry: WorkoutEntry
         let workoutDate: Date
         let bestSet: CandidateSet
         /// Semántica de comparación derivada del tipo de entrada.
@@ -297,6 +519,8 @@ struct ExerciseProgressCalculator {
                     kind: kind
                 ) {
                     sessions.append(SessionBest(
+                        workout: workout,
+                        entry: entry,
                         workoutDate: workout.date,
                         bestSet: bestSet,
                         comparisonKind: kind,
@@ -369,6 +593,17 @@ struct ExerciseProgressCalculator {
             return a.isClimbSuccess == b.isClimbSuccess
         }
         return true
+    }
+
+    /// Agrupa sesiones para récords estrictos: estándar en un solo bucket; bloque/travesía por ruta y éxito/fallo.
+    private static func strictPRGroupId(_ session: SessionBest) -> String {
+        switch session.comparisonKind {
+        case .standard:
+            return "standard"
+        case .lowerIsBetter:
+            let route = session.comparisonKey ?? "_incomplete_"
+            return "\(route)|success:\(session.isClimbSuccess)"
+        }
     }
 
     // MARK: - matchesContext
@@ -664,11 +899,6 @@ struct ExerciseProgressCalculator {
         let (kind, currentKey) = comparisonInfo(for: contextEntry)
         let currentSuccess = isSuccessfulClimbEntry(contextEntry)
 
-        // Fecha del workout que contiene este entry específico.
-        let currentWorkoutDate = workouts
-            .first(where: { $0.entries.contains { $0 === contextEntry } })?
-            .date ?? Date()
-
         // Si el entry no tiene un set válido (ej: 0 intentos), no hay datos que mostrar.
         guard let currentBestSet = bestSetInEntry(
             contextEntry, mode: mode, loadAllowed: loadAllowed,
@@ -677,12 +907,24 @@ struct ExerciseProgressCalculator {
             return ExerciseProgressSnapshot(
                 bestMarkText: "", lastSessionText: "",
                 comparisonText: "Sin datos suficientes", trend: .none,
-                hasEnoughData: false, vsBestText: ""
+                hasEnoughData: false, hasPreviousComparableSession: false,
+                vsBestText: ""
+            )
+        }
+
+        guard let currentWorkout = workouts.first(where: { $0.entries.contains { $0 === contextEntry } }) else {
+            return ExerciseProgressSnapshot(
+                bestMarkText: "", lastSessionText: "",
+                comparisonText: "Sin datos suficientes", trend: .none,
+                hasEnoughData: false, hasPreviousComparableSession: false,
+                vsBestText: ""
             )
         }
 
         let lastSession = SessionBest(
-            workoutDate: currentWorkoutDate,
+            workout: currentWorkout,
+            entry: contextEntry,
+            workoutDate: currentWorkout.date,
             bestSet: currentBestSet,
             comparisonKind: kind,
             comparisonKey: currentKey,
@@ -761,6 +1003,7 @@ struct ExerciseProgressCalculator {
             comparisonText: comparison.text,
             trend: comparison.trend,
             hasEnoughData: true,
+            hasPreviousComparableSession: previousComparableSession != nil,
             vsBestText: vsBestText
         )
     }

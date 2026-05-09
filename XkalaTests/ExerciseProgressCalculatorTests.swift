@@ -147,4 +147,89 @@ final class ExerciseProgressCalculatorTests: XCTestCase {
         XCTAssertEqual(snapshot.comparisonText, "Sin datos suficientes")
         XCTAssertEqual(snapshot.vsBestText, "")
     }
+
+    // MARK: - Gráfico de evolución (derivado)
+
+    func test_progressChart_twoSessions_reps_chronologicalAndValues() {
+        let exercise = makeExercise()
+        let older = makeEntry(exercise: exercise, reps: 8)
+        let newer = makeEntry(exercise: exercise, reps: 12)
+        let workouts = [
+            makeWorkout(date: dayOld, entries: [older]),
+            makeWorkout(date: dayNew, entries: [newer]),
+        ]
+
+        let model = ExerciseProgressCalculator.progressChartModel(for: newer, in: workouts)
+
+        XCTAssertEqual(model.points.count, 2)
+        XCTAssertEqual(model.points[0].date, dayOld)
+        XCTAssertEqual(model.points[1].date, dayNew)
+        XCTAssertEqual(model.points[0].value, 8)
+        XCTAssertEqual(model.points[1].value, 12)
+        XCTAssertEqual(model.yAxisTitle, "Reps")
+        XCTAssertFalse(model.lowerIsBetter)
+        XCTAssertEqual(model.bestInSeries, 12)
+    }
+
+    func test_progressChart_loadPrioritizedOnYAxis() {
+        let exercise = makeExercise(loadAllowed: true)
+        let older = makeEntry(exercise: exercise, reps: 10, loadKg: 10)
+        let newer = makeEntry(exercise: exercise, reps: 20, loadKg: 15)
+        let workouts = [
+            makeWorkout(date: dayOld, entries: [older]),
+            makeWorkout(date: dayNew, entries: [newer]),
+        ]
+
+        let model = ExerciseProgressCalculator.progressChartModel(for: newer, in: workouts)
+
+        XCTAssertEqual(model.points.map(\.value), [10, 15])
+        XCTAssertEqual(model.yAxisTitle, "Carga (kg)")
+        XCTAssertEqual(model.bestInSeries, 15)
+    }
+
+    /// Sin carga efectiva (0 kg): mismo criterio que `compare` — se usa la métrica base (reps).
+    func test_progressChart_loadAllowedButZeroFallsBackToReps() {
+        let exercise = makeExercise(loadAllowed: true)
+        let older = makeEntry(exercise: exercise, reps: 8, loadKg: 0)
+        let newer = makeEntry(exercise: exercise, reps: 12, loadKg: 0)
+        let workouts = [
+            makeWorkout(date: dayOld, entries: [older]),
+            makeWorkout(date: dayNew, entries: [newer]),
+        ]
+
+        let model = ExerciseProgressCalculator.progressChartModel(for: newer, in: workouts)
+
+        XCTAssertEqual(model.points.map(\.value), [8, 12])
+        XCTAssertEqual(model.yAxisTitle, "Reps")
+    }
+
+    func test_progressChart_secondsMode() {
+        let exercise = makeExercise(mode: "seconds")
+        let older = makeEntry(exercise: exercise, seconds: 60)
+        let newer = makeEntry(exercise: exercise, seconds: 90)
+        let workouts = [
+            makeWorkout(date: dayOld, entries: [older]),
+            makeWorkout(date: dayNew, entries: [newer]),
+        ]
+
+        let model = ExerciseProgressCalculator.progressChartModel(for: newer, in: workouts)
+
+        XCTAssertEqual(model.points.map(\.value), [60, 90])
+        XCTAssertEqual(model.yAxisTitle, "Segundos")
+    }
+
+    func test_progressChart_ignoresNotDoneEntries() {
+        let exercise = makeExercise()
+        let notDone = makeEntry(exercise: exercise, reps: 99, isDone: false)
+        let done = makeEntry(exercise: exercise, reps: 5, isDone: true)
+        let workouts = [
+            makeWorkout(date: dayOld, entries: [notDone]),
+            makeWorkout(date: dayNew, entries: [done]),
+        ]
+
+        let model = ExerciseProgressCalculator.progressChartModel(for: done, in: workouts)
+
+        XCTAssertEqual(model.points.count, 1)
+        XCTAssertEqual(model.points[0].value, 5)
+    }
 }

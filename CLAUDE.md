@@ -123,6 +123,39 @@ La prioridad del producto es entender la evolución del escalador, no solo verif
 - Crear servicios o DTOs cuando ayuden a desacoplar SwiftData de la UI.
 - Si una solución puede hacerse sin tocar persistencia, esa opción tiene prioridad en fases tempranas.
 - Cualquier cambio debe respetar el historial ya guardado.
+- Priorizar DTOs derivados para la UI de estadísticas.
+- Las estadísticas globales (`StatsView`) van separadas del análisis por ejercicio en `ExerciseDetailView`.
+- Mantener compatibilidad SwiftData sin migraciones cuando se añadan métricas.
+- Evitar métricas ambiguas; si hay duda, criterio conservador y copy claro.
+
+## Estadísticas
+
+- Existe `StatsView` (acceso desde `ContentView`); muestra agregados globales.
+- Las estadísticas son **siempre derivadas** en tiempo de ejecución a partir de `WorkoutDay` / entradas / sets.
+- **No persistir** métricas agregadas ni récords (PRs) en SwiftData.
+- Usar calculadoras puras: `StatsCalculator` (globales), `ExerciseProgressCalculator` (progreso y récords por ejercicio).
+- Evitar lógica compleja en vistas: la UI recibe snapshots / DTOs ya calculados.
+
+## Métricas actuales (globales en `StatsView`)
+
+- Entrenos totales (histórico).
+- Entrenos últimos 30 días.
+- Entrenos en la semana actual (calendario del dispositivo).
+- Tiempo total entrenado (solo sesiones con `startedAt` y `endedAt` válidos y coherentes).
+- Categoría favorita (derivada de entradas completadas; criterio conservador ante empates).
+- Récords recientes (ver definición siguiente).
+- En la misma pantalla suele mostrarse también el conteo de **ejercicios completados** (entradas con `isDone`), siempre derivado.
+
+## Récords recientes
+
+Definición correcta del hito mostrado por ejercicio:
+
+- Representan la **última** vez que hubo una **nueva mejor marca histórica real** (mejora estricta respecto al máximo acumulado hasta entonces).
+- Recorrer el histórico en **orden cronológico** (antiguo → reciente).
+- La **primera** vez que se alcanza un nivel en un grupo comparable cuenta como referencia inicial; los **empates posteriores** con ese máximo **no** crean un nuevo récord.
+- No mostrar estados neutros tipo «igualó mejor marca» en esta sección.
+- Reutilizar la misma semántica que `ExerciseProgressCalculator` para **reps**, **seconds** y **loadKg** (incl. intermitentes en regleta cuando aplique).
+- **No persistir** PRs; todo sale de `latestStrictPersonalRecord` / lógica derivada.
 
 ## Riesgos clave a vigilar
 
@@ -141,8 +174,13 @@ La prioridad del producto es entender la evolución del escalador, no solo verif
 ## Estado actual de pantallas
 
 ### ContentView
-- Lista WorkoutDay
-- Crea uno por día sin duplicar fecha
+- Calendario + sesiones del día seleccionado; navegación a detalle de sesión
+- Acceso a `ProfileView`, `StatsView` y exportación JSON desde la barra superior
+- Crea nuevas sesiones en la fecha seleccionada (FAB «Nuevo»)
+
+### StatsView
+- Estadísticas globales derivadas (cards simples, sin gráficos en el MVP actual)
+- Sin lógica de cálculo pesada en la vista; consume `GlobalStatsSnapshot` vía `StatsCalculator`
 
 ### WorkoutDetailView
 - Lista WorkoutEntry
@@ -175,6 +213,7 @@ La prioridad del producto es entender la evolución del escalador, no solo verif
 - Catálogo importado desde CSV
 - La app debe sentirse útil para escaladores, no solo correcta técnicamente
 - La UX debe priorizar comprensión de progreso y claridad de métricas
+- Pantalla de estadísticas: **simple y legible**, pocas métricas por vista, **poco ruido visual** (cards claras, sin sobrecarga)
 
 ## Forma de responder
 
