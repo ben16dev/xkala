@@ -115,7 +115,7 @@ struct AddExerciseView: View {
                                         .font(.headline)
                                         .foregroundStyle(.primary)
 
-                                    Text("\(ex.category) · \(ex.mode == "seconds" ? "Tiempo" : "Reps") · \(ex.loadAllowed ? "Con carga" : "Sin carga")")
+                                    Text("\(ex.displayCategoryLabel) · \(ex.mode == "seconds" ? "Tiempo" : "Reps") · \(ex.loadAllowed ? "Con carga" : "Sin carga")")
                                         .font(.subheadline)
                                         .foregroundStyle(.secondary)
 
@@ -148,29 +148,34 @@ struct AddExerciseView: View {
         }
         .scrollContentBackground(.hidden)
         .listStyle(.plain)
+        .xkalaScreenBackground(.calendar)
         .navigationTitle("Añadir ejercicio")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                Button {
-                    showNewExercise = true
-                } label: {
-                    XkalaActionButton(
-                        title: "Nuevo",
-                        systemImage: "plus"
-                    )
-                }
-                .disabled(isImporting)
-
+            ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     Task { await resetAndReimportCatalog() }
                 } label: {
-                    XkalaActionButton(
-                        title: "Reimportar",
-                        systemImage: "plus"
-                    )
+                    XkalaToolbarIconButton(systemImage: "arrow.clockwise")
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Reimportar catálogo")
                 .disabled(isImporting)
             }
+            .xkalaIndependentToolbarIcon()
+
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showNewExercise = true
+                } label: {
+                    XkalaToolbarIconButton(systemImage: "plus")
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Nuevo ejercicio")
+                .disabled(isImporting)
+            }
+            .xkalaIndependentToolbarIcon()
         }
         .sheet(isPresented: $showNewExercise) {
             NavigationStack {
@@ -215,7 +220,7 @@ struct AddExerciseView: View {
     }
 
     private var categoryList: [String] {
-        let unique = Set(exercises.map { $0.category }).sorted()
+        let unique = Set(exercises.map(\.displayCategoryLabel)).sorted()
         return ["Todas"] + unique
     }
 
@@ -223,7 +228,7 @@ struct AddExerciseView: View {
         let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 
         return exercises.filter { ex in
-            let matchesCategory = (selectedCategory == "Todas") || (ex.category == selectedCategory)
+            let matchesCategory = (selectedCategory == "Todas") || (ex.displayCategoryLabel == selectedCategory)
             let matchesSearch = q.isEmpty || ex.name.lowercased().contains(q)
             return matchesCategory && matchesSearch
         }
@@ -281,12 +286,12 @@ private struct NewExerciseView: View {
     var onCancel: () -> Void
 
     @State private var name: String = ""
-    @State private var category: String = "Fuerza"
+    @State private var category: String = "Fuerza general"
     @State private var mode: String = "reps"
     @State private var loadAllowed: Bool = true
     @State private var notes: String = ""
 
-    private let categories = ["Hangboard", "Fuerza", "Resistencia", "Core", "Calentamiento", "Campus", "Test", "Movilidad", "Otros"]
+    private let categories = ["Hangboard", "Fuerza general", "Acondicionamiento", "Core", "Calentamiento", "Campus", "Test", "Movilidad", "Otros"]
 
     var body: some View {
         Form {
@@ -306,25 +311,34 @@ private struct NewExerciseView: View {
 
                 Toggle("Permite carga", isOn: $loadAllowed)
             }
+            .listRowBackground(Color.clear)
 
             Section("Notas") {
                 TextField("Cómo se hace / protocolo…", text: $notes, axis: .vertical)
                     .lineLimit(3...8)
             }
+            .listRowBackground(Color.clear)
         }
+        .scrollContentBackground(.hidden)
+        .xkalaScreenBackground(.calendar)
         .navigationTitle("Nuevo ejercicio")
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Button("Cancelar") { onCancel() }
             }
             ToolbarItem(placement: .topBarTrailing) {
-                Button("Guardar") {
+                Button {
                     let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
                     guard !trimmed.isEmpty else { return }
                     onSave(Exercise(name: trimmed, category: category, mode: mode, loadAllowed: loadAllowed, notes: notes))
+                } label: {
+                    XkalaToolbarIconButton(systemImage: "checkmark")
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Guardar ejercicio")
                 .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
+            .xkalaIndependentToolbarIcon()
         }
     }
 }

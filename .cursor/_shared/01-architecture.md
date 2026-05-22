@@ -1,34 +1,89 @@
 # Xkala — Arquitectura
 
+Este documento define principios técnicos estables del proyecto.
+
 ## Objetivo
-Xkala es una app iOS para escaladores orientada al seguimiento del progreso, no solo al registro de entrenamientos.
 
-## Stack actual
-- SwiftUI
+Xkala busca entender la evolución del escalador, no solo registrar entrenamientos.
+
+La arquitectura debe favorecer:
+
+- preservación de histórico
+- métricas fiables
+- evolución incremental
+- simplicidad
+
+---
+
+## Persistencia
+
+Stack actual:
+
 - SwiftData local
-- ModelContainer manual en la app
+- ModelContainer manual
+- Persistencia real
 - Sin CloudKit
-- Sin almacenamiento en memoria
-- Persistencia real local
 
-## Reglas de arquitectura
-- No cambiar el modelo SwiftData sin justificación clara.
-- No proponer migraciones si no son necesarias.
-- No persistir estadísticas derivadas prematuramente.
-- Calcular primero métricas y agregados desde los datos actuales.
-- Separar lógica de cálculo, lógica de persistencia y lógica de UI.
-- Evitar lógica de negocio compleja dentro de las vistas.
-- Crear servicios o DTOs solo si ayudan a desacoplar SwiftData de la UI.
-- Si una solución puede hacerse sin tocar persistencia, esa opción tiene prioridad.
-- Cualquier cambio debe respetar el historial ya guardado.
+Reglas:
 
-## Estadísticas y progreso (decisiones recientes)
-- `StatsView`: agregados globales; siempre datos derivados (`StatsCalculator` → DTOs como `GlobalStatsSnapshot`).
-- `ExerciseProgressCalculator`: progreso por ejercicio y lógica de **récords recientes** (última mejora estricta del máximo histórico; histórico cronológico; sin persistir PRs).
-- Priorizar snapshots/DTOs para la UI; mantener estadísticas globales y `ExerciseDetailView` conceptualmente separados.
-- UX de estadísticas: simple, legible, poco ruido visual.
+- No cambiar modelos sin justificación clara
+- Evitar migraciones innecesarias
+- Respetar histórico existente
+- Priorizar soluciones que no requieran tocar persistencia
 
-## Prioridad de implementación
-- Favorecer cambios pequeños, seguros y comprobables en iPhone real.
-- Evitar refactors grandes de golpe.
-- Proponer primero una fase mínima antes de una fase más ambiciosa.
+---
+
+## Estadísticas y progreso
+
+Regla principal:
+
+Todo debe calcularse desde datos existentes.
+
+No persistir:
+
+- estadísticas
+- récords
+- agregados
+- métricas derivadas
+
+Ejemplos actuales:
+
+- `ExerciseProgressCalculator`
+- `StatsCalculator`
+- `InsightsCalculator`
+
+---
+
+## Separación de responsabilidades
+
+Priorizar separación entre:
+
+```text
+Persistencia
+↓
+Lógica cálculo
+↓
+UI
+
+Evitar:
+
+lógica compleja en vistas
+cálculos duplicados
+persistencia dentro de UI
+UI y datos
+
+Preferencias:
+
+vistas reciben datos derivados cuando tenga sentido
+snapshots / DTOs solo si simplifican
+evitar capas innecesarias
+Estrategia de implementación
+
+Prioridad:
+
+Cambio mínimo viable
+Seguridad datos
+Test rápido en iPhone
+Evolución futura sin complejidad extra
+
+Evitar: refactors grandes, rediseños prematuros, sobreingeniería

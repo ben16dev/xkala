@@ -27,7 +27,7 @@ struct ContentView: View {
                     selectedDaySessionsList
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                .background(XkalaTheme.bg.ignoresSafeArea())
+                .xkalaScreenBackground(.calendar)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar(.hidden, for: .navigationBar)
                 .navigationDestination(item: $selectedWorkout) { workout in
@@ -84,37 +84,31 @@ struct ContentView: View {
                     NavigationLink {
                         StatsView()
                     } label: {
-                        Image(systemName: "chart.bar.xaxis")
-                            .font(.headline)
-                            .foregroundStyle(.secondary)
-                            .frame(width: 42, height: 42)
-                            .background(
-                                Circle()
-                                    .fill(.thinMaterial)
-                            )
-                            .overlay(
-                                Circle()
-                                    .stroke(Color.white.opacity(0.10), lineWidth: 1)
-                            )
+                        XkalaToolbarIconButton(systemImage: "chart.bar.xaxis")
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Estadísticas")
 
+                    NavigationLink {
+                        XkalaProgressView()
+                    } label: {
+                        XkalaToolbarIconButton(systemImage: "chart.line.uptrend.xyaxis")
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Progreso")
+
+                    NavigationLink {
+                        ImportView()
+                    } label: {
+                        XkalaToolbarIconButton(systemImage: "square.and.arrow.down")
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Importar CSV")
+
                     Button {
                         exportJSONForSharing()
                     } label: {
-                        Image(systemName: "square.and.arrow.up")
-                            .font(.headline)
-                            .foregroundStyle(.secondary)
-                            .frame(width: 42, height: 42)
-                            .background(
-                                Circle()
-                                    .fill(.thinMaterial)
-                            )
-                            .overlay(
-                                Circle()
-                                    .stroke(Color.white.opacity(0.10), lineWidth: 1)
-                            )
+                        XkalaToolbarIconButton(systemImage: "square.and.arrow.up")
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Exportar JSON")
@@ -244,8 +238,8 @@ struct ContentView: View {
             )
             .foregroundStyle(Color.white)
             .scaleEffect(fabPressed ? 0.95 : 1.0)
-            .shadow(color: Color.black.opacity(0.35), radius: 18, x: 0, y: 10)
-            .shadow(color: Color.black.opacity(0.20), radius: 6, x: 0, y: 2)
+            .shadow(color: XkalaTheme.cardPrimaryShadow, radius: 18, x: 0, y: 10)
+            .shadow(color: XkalaTheme.cardSecondaryShadow, radius: 6, x: 0, y: 2)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Crear sesión de rocódromo")

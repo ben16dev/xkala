@@ -15,11 +15,6 @@ struct InsightsView: View {
         InsightsCalculator.snapshot(from: workouts, range: selectedRange)
     }
 
-    /// Hay al menos una sesión con cronómetro válido en el rango (no solo filas vacías de buckets).
-    private var hasTimedActivityInRange: Bool {
-        snapshot.buckets.contains { $0.sessionCount > 0 }
-    }
-
     var body: some View {
         Group {
             if isEmbedded {
@@ -42,28 +37,17 @@ struct InsightsView: View {
 
             InsightsRangePicker(selection: $selectedRange)
 
-            if !hasTimedActivityInRange {
-                emptyState
-            } else {
-                InsightsMetricPicker(selection: $selectedMetric)
-                InsightsChartCard(
-                    buckets: snapshot.buckets,
-                    metric: selectedMetric,
-                    range: selectedRange
-                )
-            }
+            InsightsMetricPicker(selection: $selectedMetric)
+            InsightsChartCard(
+                buckets: snapshot.buckets,
+                metric: selectedMetric,
+                range: selectedRange
+            )
         }
         .padding(.horizontal, 16)
         .padding(.vertical, isEmbedded ? 4 : 12)
     }
 
-    private var emptyState: some View {
-        Text("Sin sesiones con cronómetro completo en este periodo. Finaliza el entreno para ver tiempo y sesiones aquí.")
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .xkalaCard()
-    }
 }
 
 // MARK: - Métrica del gráfico
@@ -74,82 +58,6 @@ private enum InsightsMetric: String, CaseIterable, Identifiable {
     case venue = "Tipo"
 
     var id: String { rawValue }
-}
-
-// MARK: - Formato de ejes
-
-private enum InsightsChartAxisFormatting {
-    /// Curvas suaves tipo Strava.
-    static let lineInterpolation: InterpolationMethod = .catmullRom
-    static let lineWidth: CGFloat = 2.75
-    static let pointSize: CGFloat = 54
-
-    /// Eje Y de duración: `h:mm` (sin segundos ni decimales).
-    static func formatDurationHoursMinutes(totalMinutes: Double) -> String {
-        let total = Int((totalMinutes).rounded(.toNearestOrAwayFromZero))
-        let h = total / 60
-        let m = abs(total % 60)
-        return String(format: "%d:%02d", h, m)
-    }
-
-    /// Marcas en minutos: pasos de 30 min; si hay demasiadas, pasos de 60 min.
-    static func timeAxisTickMinutes(maxDataMinutes: Double) -> [Double] {
-        let raw = max(0, maxDataMinutes)
-        let cap30 = max(ceil(raw / 30) * 30, 30)
-        var ticks: [Double] = []
-        var v: Double = 0
-        while v <= cap30 + 1e-9 {
-            ticks.append(v)
-            v += 30
-        }
-        if ticks.count > 7 {
-            ticks = []
-            let cap60 = max(ceil(raw / 60) * 60, 60)
-            v = 0
-            while v <= cap60 + 1e-9 {
-                ticks.append(v)
-                v += 60
-            }
-        }
-        return ticks
-    }
-
-    /// Pocas marcas enteras para el eje de sesiones.
-    static func sessionAxisTickValues(maxCount: Int) -> [Int] {
-        let m = max(1, maxCount)
-        let roughStep = max(1, (m + 3) / 4)
-        var out: [Int] = [0]
-        var v = roughStep
-        while v < m {
-            out.append(v)
-            v += roughStep
-        }
-        out.append(m)
-        return Array(Set(out)).sorted()
-    }
-
-    /// Centra cada entero 0…n−1 en su celda del eje X.
-    static func chartXDomain(bucketCount: Int) -> ClosedRange<Double> {
-        guard bucketCount > 0 else { return 0...0 }
-        let last = Double(bucketCount - 1)
-        return -0.5...(last + 0.5)
-    }
-
-    /// Índices del eje X para marcas visibles (1A: meses alternos).
-    static func xAxisMarkIndices(buckets: [InsightsBucket], range: StatsRange) -> [Double] {
-        switch range {
-        case .oneYear:
-            return buckets.map(\.chronologicalIndex).filter { $0 % 2 == 0 }.map(Double.init)
-        case .sevenDays, .oneMonth, .sixMonths:
-            return buckets.map { Double($0.chronologicalIndex) }
-        }
-    }
-
-    /// Tiempo: mint / turquesa claro sobre el fondo oscuro.
-    static let timeLineColor = Color(hex: "#8FD4C8")
-
-    /// Etiquetas del eje Y de tiempo más legibles sobre fondo oscuro.
-    static let timeAxisLabelColor = Color.white.opacity(0.88)
 }
 
 // MARK: - Selectores
@@ -320,7 +228,7 @@ private struct InsightsChartCard: View {
 
     private func timeOnlyChart() -> some View {
         let ordered = bucketsOrdered
-        let xDomain = InsightsChartAxisFormatting.chartXDomain(bucketCount: ordered.count)
+        let xDomain = InsightsChartAxisFormatting.chartXDomain(bucketCount: ordered.count, range: range)
         let yTicks = InsightsChartAxisFormatting.timeAxisTickMinutes(
             maxDataMinutes: ordered.map { $0.trainingTimeSeconds / 60 }.max() ?? 0
         )
@@ -350,13 +258,15 @@ private struct InsightsChartCard: View {
         }
         .chartXScale(domain: xDomain)
         .chartYScale(domain: 0...yMax)
-        .chartXAxis {
-            xAxisMarksChronological(orderedBuckets: ordered, range: range)
+        .chartPlotStyle { plotArea in
+            plotArea.padding(InsightsChartAxisFormatting.chartPlotPadding(for: range))
         }
+        .chartXAxis(.hidden)
+        .insightsChartAxisOverlay(orderedBuckets: ordered, range: range)
         .chartYAxis {
             AxisMarks(position: .leading, values: yTicks) { value in
-                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                    .foregroundStyle(Color.white.opacity(0.06))
+                AxisGridLine(stroke: StrokeStyle(lineWidth: InsightsChartAxisFormatting.horizontalGuideLineWidth))
+                    .foregroundStyle(InsightsChartAxisFormatting.horizontalGuideColor)
                 AxisValueLabel {
                     if let mins = value.as(Double.self) {
                         Text(InsightsChartAxisFormatting.formatDurationHoursMinutes(totalMinutes: mins))
@@ -370,7 +280,7 @@ private struct InsightsChartCard: View {
 
     private func sessionsOnlyChart() -> some View {
         let ordered = bucketsOrdered
-        let xDomain = InsightsChartAxisFormatting.chartXDomain(bucketCount: ordered.count)
+        let xDomain = InsightsChartAxisFormatting.chartXDomain(bucketCount: ordered.count, range: range)
         let maxSessions = ordered.map(\.sessionCount).max() ?? 0
         let yTicks = InsightsChartAxisFormatting.sessionAxisTickValues(maxCount: maxSessions)
         let yMax = Double(yTicks.last ?? 1)
@@ -398,11 +308,15 @@ private struct InsightsChartCard: View {
         }
         .chartXScale(domain: xDomain)
         .chartYScale(domain: 0...yMax)
-        .chartXAxis {
-            xAxisMarksChronological(orderedBuckets: ordered, range: range)
+        .chartPlotStyle { plotArea in
+            plotArea.padding(InsightsChartAxisFormatting.chartPlotPadding(for: range))
         }
+        .chartXAxis(.hidden)
+        .insightsChartAxisOverlay(orderedBuckets: ordered, range: range)
         .chartYAxis {
             AxisMarks(position: .leading, values: yTicks.map(Double.init)) { value in
+                AxisGridLine(stroke: StrokeStyle(lineWidth: InsightsChartAxisFormatting.horizontalGuideLineWidth))
+                    .foregroundStyle(InsightsChartAxisFormatting.horizontalGuideColor)
                 AxisValueLabel {
                     if let n = value.as(Double.self) {
                         Text(String(Int(n)))
@@ -417,7 +331,7 @@ private struct InsightsChartCard: View {
     /// Dos líneas: rocódromo (turquesa) y roca (amarillo); misma ventana que tiempo/sesiones.
     private func venueStackedChart() -> some View {
         let ordered = bucketsOrdered
-        let xDomain = InsightsChartAxisFormatting.chartXDomain(bucketCount: ordered.count)
+        let xDomain = InsightsChartAxisFormatting.chartXDomain(bucketCount: ordered.count, range: range)
         let maxVenue = ordered.map { max($0.trainingSessions, $0.climbingSessions) }.max() ?? 0
         let yTicks = InsightsChartAxisFormatting.sessionAxisTickValues(maxCount: maxVenue)
         let yMax = Double(yTicks.last ?? 1)
@@ -463,13 +377,15 @@ private struct InsightsChartCard: View {
         }
         .chartXScale(domain: xDomain)
         .chartYScale(domain: 0...yMax)
-        .chartXAxis {
-            xAxisMarksChronological(orderedBuckets: ordered, range: range)
+        .chartPlotStyle { plotArea in
+            plotArea.padding(InsightsChartAxisFormatting.chartPlotPadding(for: range))
         }
+        .chartXAxis(.hidden)
+        .insightsChartAxisOverlay(orderedBuckets: ordered, range: range)
         .chartYAxis {
             AxisMarks(position: .leading, values: yTicks.map(Double.init)) { value in
-                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                    .foregroundStyle(Color.white.opacity(0.06))
+                AxisGridLine(stroke: StrokeStyle(lineWidth: InsightsChartAxisFormatting.horizontalGuideLineWidth))
+                    .foregroundStyle(InsightsChartAxisFormatting.horizontalGuideColor)
                 AxisValueLabel {
                     if let n = value.as(Double.self) {
                         Text(String(Int(n)))
@@ -481,24 +397,5 @@ private struct InsightsChartCard: View {
         }
         .chartLegend(.hidden)
     }
-
-    /// Eje X en índice cronológico; el texto solo en `AxisValueLabel` (1A: meses alternos).
-    private func xAxisMarksChronological(orderedBuckets: [InsightsBucket], range: StatsRange) -> some AxisContent {
-        let tickValues = InsightsChartAxisFormatting.xAxisMarkIndices(buckets: orderedBuckets, range: range)
-        return AxisMarks(values: tickValues) { value in
-            if let x = value.as(Double.self) {
-                let i = Int(x.rounded())
-                if let b = orderedBuckets.first(where: { $0.chronologicalIndex == i }) {
-                    AxisValueLabel {
-                        Text(b.axisLabel)
-                            .font(.caption2.weight(.medium))
-                            .foregroundStyle(Color.white.opacity(0.82))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.65)
-                            .multilineTextAlignment(.center)
-                    }
-                }
-            }
-        }
-    }
 }
+

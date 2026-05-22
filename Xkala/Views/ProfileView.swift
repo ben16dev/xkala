@@ -18,6 +18,7 @@ struct ProfileView: View {
         }
         .navigationTitle("Perfil")
         .navigationBarTitleDisplayMode(.inline)
+        .xkalaScreenBackground(.calendar)
         .onAppear(perform: ensureProfileExistsIfNeeded)
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {

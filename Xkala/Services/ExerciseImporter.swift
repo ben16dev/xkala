@@ -1,17 +1,17 @@
 import Foundation
 import SwiftData
 
-// MARK: - Catálogo (importación / reimportación determinista)
+// MARK: - Catálogo (importación / reimportación determinista, no destructiva)
 //
 // Orden lógico de `upsertFromCatalogRows`:
 // A. Normalizar filas del CSV
 // B. Renombres canónicos en store (antes de upsert)
-// C. (Implícito) Los canónicos existen al fusionar filas en D — p. ej. intermitentes 7/3 → `Suspensiones intermitentes`
-// D. Upsert de ejercicios base desde el catálogo
-// E. Upsert de derivados `Test de …`
-// F. Archivar legacy equivalente (p. ej. 7/3)
-// G. Borrar o archivar legacy retirado sin uso
-// H. Sin duplicados visibles: reactivación solo vía upsert; legacy permanece archivado
+// C. (Implícito) Filas CSV + `ExerciseCatalog.renameMap` resuelven el mismo `Exercise` por nombre nuevo o alias
+// D. Upsert de ejercicios desde el catálogo (incluye filas `Test de …` explícitas en el CSV)
+// D2. Consolidar duplicados nombre antiguo / nombre nuevo del renameMap (reapuntar `WorkoutEntry`, archivar resto)
+// F. Archivar legacy equivalente intermitentes 7/3 distinto del canónico
+// G. Borrar o archivar legacy Hangboard retirado **solo** si sin `WorkoutEntry`
+// H. Sin duplicados visibles: reactivación vía upsert; no se borran ejercicios con histórico
 
 enum ExerciseImporter {
 
@@ -44,23 +44,8 @@ enum ExerciseImporter {
     private enum CatalogRename {
         static let dominadasLastradasLegacyDisplay = "Dominadas lastradas"
         static let dominadasLastreNegativoDisplay = "Dominadas con lastre negativo"
-        static let dominadasCategory = "Fuerza"
+        static let dominadasCategory = "Fuerza general"
     }
-
-    private struct CatalogTestCloneSpec {
-        let baseName: String
-        let category: String
-    }
-
-    private static let catalogTestCloneSpecs: [CatalogTestCloneSpec] = [
-        CatalogTestCloneSpec(baseName: "Hombro", category: "Fuerza"),
-        CatalogTestCloneSpec(baseName: "Bíceps", category: "Fuerza"),
-        CatalogTestCloneSpec(baseName: "Suspensiones intermitentes", category: "Hangboard"),
-        CatalogTestCloneSpec(baseName: "Press banca", category: "Fuerza"),
-        CatalogTestCloneSpec(baseName: "Dominadas libres", category: "Resistencia"),
-        CatalogTestCloneSpec(baseName: "Dominadas con lastre", category: "Fuerza"),
-        CatalogTestCloneSpec(baseName: "Dominadas con lastre negativo", category: "Fuerza")
-    ]
 
     // MARK: - Normalización (único sitio para matching robusto)
 
@@ -71,9 +56,10 @@ enum ExerciseImporter {
     }
 
     private static func normalizeCategoryKey(_ s: String) -> String {
-        normalizeCatalogField(s)
+        let normalized = normalizeCatalogField(s)
             .folding(options: .diacriticInsensitive, locale: .current)
             .lowercased()
+        return Exercise.canonicalCategorySemanticKey(normalized)
     }
 
     /// Clave de nombre para comparar ejercicios: trim, diacríticos, minúsculas, comillas y separadores `/` tolerantes.
@@ -198,6 +184,71 @@ enum ExerciseImporter {
         try findExercise(displayName: displayName, category: category, in: fetchAllExercises(context: context))
     }
 
+    // MARK: - `ExerciseCatalog.renameMap` (alias → nombre CSV)
+
+    /// Claves de nombre (`catalogExerciseNameMatchKey`) de aliases cuyo destino en el mapa coincide con el nombre de catálogo actual.
+    private static func renameAliasNameKeys(forCanonicalCatalogName name: String) -> [String] {
+        let targetKey = catalogExerciseNameMatchKey(name)
+        return ExerciseCatalog.renameMap.compactMap { oldDisplay, newDisplay in
+            catalogExerciseNameMatchKey(newDisplay) == targetKey
+                ? catalogExerciseNameMatchKey(oldDisplay)
+                : nil
+        }
+    }
+
+    private static func pickPrimaryExerciseForMerge(candidates: [Exercise], entries: [WorkoutEntry]) -> Exercise {
+        let sorted = candidates.sorted { a, b in
+            let aHas = entries.contains { $0.exercise === a }
+            let bHas = entries.contains { $0.exercise === b }
+            if aHas != bHas { return aHas && !bHas }
+            if a.isArchived != b.isArchived { return !a.isArchived && b.isArchived }
+            return a.name.localizedStandardCompare(b.name) == .orderedAscending
+        }
+        return sorted[0]
+    }
+
+    /// Si hay varios `Exercise` bajo distintos aliases que colisionan en un único nombre de catálogo, unifica en uno y archiva el resto (sin borrar).
+    private static func mergeExercisesIfNeeded(
+        candidates: [Exercise],
+        entries: [WorkoutEntry]
+    ) -> Exercise {
+        guard let first = candidates.first else {
+            preconditionFailure("mergeExercisesIfNeeded requiere al menos un candidato")
+        }
+        guard candidates.count > 1 else { return first }
+
+        let primary = pickPrimaryExerciseForMerge(candidates: candidates, entries: entries)
+        for ex in candidates where ex !== primary {
+            for entry in entries where entry.exercise === ex {
+                entry.exercise = primary
+            }
+            ex.isArchived = true
+        }
+        return primary
+    }
+
+    /// Reapunta entradas desde ejercicios que siguen con nombre “antiguo” del mapa hacia uno que ya tiene el nombre nuevo, si ambos existen.
+    private static func consolidateRenameMapDuplicates(context: ModelContext) throws {
+        let all = try fetchAllExercises(context: context)
+        let entries = try fetchAllWorkoutEntries(context: context)
+
+        for (oldDisplay, newDisplay) in ExerciseCatalog.renameMap {
+            let oldKey = catalogExerciseNameMatchKey(oldDisplay)
+            let newKey = catalogExerciseNameMatchKey(newDisplay)
+            let olds = all.filter { catalogExerciseNameMatchKey($0.name) == oldKey }
+            let news = all.filter { catalogExerciseNameMatchKey($0.name) == newKey }
+            guard !olds.isEmpty, !news.isEmpty else { continue }
+
+            let primary = pickPrimaryExerciseForMerge(candidates: news, entries: entries)
+            for o in olds where o !== primary {
+                for entry in entries where entry.exercise === o {
+                    entry.exercise = primary
+                }
+                o.isArchived = true
+            }
+        }
+    }
+
     /// Fusiona fila CSV → payload persistible (canónico intermitentes 7/3, etc.).
     private static func canonicalPayloadFromCatalogRow(
         name: String,
@@ -245,11 +296,32 @@ enum ExerciseImporter {
             rawNotesFromPayload: payload.notes
         )
 
-        guard let existing = try findExercise(
+        let all = try fetchAllExercises(context: context)
+        let entries = try fetchAllWorkoutEntries(context: context)
+
+        var existing = findExercise(
             displayName: payload.name,
             category: payload.category,
-            context: context
-        ) else {
+            in: all
+        )
+
+        if existing == nil {
+            let aliasKeys = renameAliasNameKeys(forCanonicalCatalogName: payload.name)
+            var candidates: [Exercise] = []
+            candidates.reserveCapacity(aliasKeys.count * 2)
+            for key in aliasKeys {
+                for ex in all where catalogExerciseNameMatchKey(ex.name) == key {
+                    candidates.append(ex)
+                }
+            }
+            var seen = Set<ObjectIdentifier>()
+            let unique = candidates.filter { seen.insert(ObjectIdentifier($0)).inserted }
+            if !unique.isEmpty {
+                existing = mergeExercisesIfNeeded(candidates: unique, entries: entries)
+            }
+        }
+
+        guard let resolvedExisting = existing else {
             let exercise = Exercise(
                 name: payload.name,
                 category: payload.category,
@@ -261,10 +333,12 @@ enum ExerciseImporter {
             return
         }
 
-        existing.mode = payload.mode
-        existing.loadAllowed = payload.loadAllowed
-        existing.notes = resolvedNotes
-        if existing.isArchived { existing.isArchived = false }
+        resolvedExisting.name = payload.name
+        resolvedExisting.category = payload.category
+        resolvedExisting.mode = payload.mode
+        resolvedExisting.loadAllowed = payload.loadAllowed
+        resolvedExisting.notes = resolvedNotes
+        if resolvedExisting.isArchived { resolvedExisting.isArchived = false }
     }
 
     /// Alta manual / API pública: misma resolución de canónico y notas; **no** ejecuta pasos F/G del catálogo completo.
@@ -327,59 +401,6 @@ enum ExerciseImporter {
         }
     }
 
-    // MARK: - E — Derivados `Test de …`
-
-    private static func findUnarchivedBaseForTestClone(
-        baseName: String,
-        category: String,
-        context: ModelContext
-    ) throws -> Exercise? {
-        let nameKey = catalogExerciseNameMatchKey(baseName)
-        let categoryKey = normalizeCategoryKey(category)
-        let all = try fetchAllExercises(context: context)
-        return all.first { ex in
-            !ex.isArchived
-                && catalogExerciseNameMatchKey(ex.name) == nameKey
-                && normalizeCategoryKey(ex.category) == categoryKey
-        }
-    }
-
-    private static func copyCatalogFields(from base: Exercise, to derived: Exercise) {
-        derived.mode = base.mode
-        derived.loadAllowed = base.loadAllowed
-        derived.notes = base.notes
-    }
-
-    private static func upsertDerivedTestExercises(context: ModelContext) throws {
-        for spec in catalogTestCloneSpecs {
-            guard let base = try findUnarchivedBaseForTestClone(
-                baseName: spec.baseName,
-                category: spec.category,
-                context: context
-            ) else { continue }
-
-            let testName = "Test de \(base.name)"
-            if let testExisting = try findExercise(
-                displayName: testName,
-                category: base.category,
-                context: context
-            ) {
-                copyCatalogFields(from: base, to: testExisting)
-                if testExisting.isArchived { testExisting.isArchived = false }
-            } else {
-                let test = Exercise(
-                    name: testName,
-                    category: base.category,
-                    mode: base.mode,
-                    loadAllowed: base.loadAllowed,
-                    notes: base.notes,
-                    isArchived: false
-                )
-                context.insert(test)
-            }
-        }
-    }
-
     // MARK: - F — Archivar legacy intermitentes 7/3
 
     private static func archiveLegacyIntermittent73Variants(context: ModelContext) throws {
@@ -425,7 +446,7 @@ enum ExerciseImporter {
         // B — Renombres canónicos en store (antes del upsert por filas)
         try applyDominadasLastradasRename(context: context)
 
-        // D — Upsert ejercicios base
+        // D — Upsert ejercicios (catálogo completo en CSV, incl. tests)
         for row in normalizedRows {
             let payload = canonicalPayloadFromCatalogRow(
                 name: row.name,
@@ -437,8 +458,8 @@ enum ExerciseImporter {
             try upsertCatalogExercise(payload: payload, context: context)
         }
 
-        // E — Derivados Test (bases ya actualizadas)
-        try upsertDerivedTestExercises(context: context)
+        // D2 — Colisiones nombre antiguo / nuevo tras importación
+        try consolidateRenameMapDuplicates(context: context)
 
         // F — Archivar equivalentes legacy (7/3)
         try archiveLegacyIntermittent73Variants(context: context)

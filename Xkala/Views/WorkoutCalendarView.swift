@@ -85,7 +85,7 @@ private enum XkalaCalendarSessionClassifier {
     }
 
     private static func workoutTextParts(_ workout: WorkoutDay) -> [String] {
-        var parts: [String] = [workout.name, workout.notes]
+        var parts: [String] = [workout.name, workout.displayNotes]
         if let derived = workout.categoriesBasedName {
             parts.append(derived)
         }
@@ -95,7 +95,7 @@ private enum XkalaCalendarSessionClassifier {
     private static func entryTextParts(_ entry: WorkoutEntry) -> [String] {
         var parts: [String] = [
             entry.exercise.name,
-            entry.exercise.category,
+            entry.exercise.displayCategoryLabel,
             entry.exercise.notes,
             entry.entryNotes,
         ]

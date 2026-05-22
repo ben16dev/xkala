@@ -20,14 +20,9 @@ struct StatsView: View {
                     systemImage: "clock.badge"
                 )
                 StatCard(
-                    title: "Ejercicios completados",
+                    title: "Ejercicios totales",
                     value: "\(snapshot.totalCompletedExercises)",
                     systemImage: "checkmark.circle"
-                )
-                StatCard(
-                    title: "Entrenos esta semana",
-                    value: "\(snapshot.currentWeekWorkouts)",
-                    systemImage: "calendar"
                 )
                 StatCard(
                     title: "Categoría favorita",
@@ -40,11 +35,36 @@ struct StatsView: View {
                     systemImage: "timer"
                 )
 
+                if let load7 = snapshot.sessionLoadLast7Days {
+                    StatCard(
+                        title: "Carga últimos 7 días",
+                        value: "\(load7)",
+                        systemImage: "bolt.heart"
+                    )
+                }
+
+                if let load30 = snapshot.sessionLoadLast30Days {
+                    StatCard(
+                        title: "Carga últimos 30 días",
+                        value: "\(load30)",
+                        systemImage: "chart.line.uptrend.xyaxis"
+                    )
+                }
+
+                if let method = snapshot.mostFrequentTrainingMethodLast30Days {
+                    StatCard(
+                        title: "Objetivo más frecuente",
+                        value: method.displayName,
+                        systemImage: "target"
+                    )
+                }
+
                 RecentRecordsSection(records: snapshot.recentRecords)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
         }
+        .xkalaScreenBackground(.calendar)
         .navigationTitle("Estadísticas")
         .navigationBarTitleDisplayMode(.large)
     }

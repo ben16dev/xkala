@@ -99,22 +99,22 @@ struct ExerciseDetailView: View {
                     } else if entry.usesIntermittentHangboardEditor {
                         IntermittentHangboardEditorView(
                             workSeconds: Binding(
-                                get: { entry.sets.first?.seconds ?? 7 },
+                                get: { entry.sets.first?.seconds ?? 0 },
                                 set: { newValue in applyIntermittentWorkSecondsToAll(newValue) }
                             ),
                             restSeconds: Binding(
-                                get: { intermittentRestSeconds(from: entry.entryNotes) ?? 3 },
+                                get: { intermittentRestSeconds(from: entry.entryNotes) ?? 0 },
                                 set: { newValue in
                                     entry.entryNotes = writingIntermittentRestSeconds(newValue, into: entry.entryNotes)
                                 }
                             ),
                             rounds: Binding(
-                                get: { entry.sets.first?.reps ?? 6 },
+                                get: { entry.sets.first?.reps ?? 0 },
                                 set: { newValue in applyIntermittentRoundsToAll(newValue) }
                             ),
                             cycles: Binding(
-                                get: { max(entry.sets.count, 1) },
-                                set: { newCount in resizeSets(to: max(newCount, 1)) }
+                                get: { entry.sets.count },
+                                set: { newCount in resizeSets(to: newCount) }
                             ),
                             loadKg: Binding(
                                 get: { entry.sets.first?.loadKg ?? 0 },
@@ -123,19 +123,13 @@ struct ExerciseDetailView: View {
                             loadAllowed: entry.exercise.loadAllowed
                         )
                     } else {
-                        if entry.sets.isEmpty {
-                            Text("Creando registro…")
-                                .foregroundStyle(.secondary)
-                                .onAppear { ensureAtLeastOneSet() }
-                        }
-
-                        if entry.usesVueltaEditor {
+                        if entry.usesCircuitEditor {
                             IntControlRow(
                                 title: "Nº vueltas",
                                 value: Binding(
-                                    get: { entry.sets.first?.reps ?? 2 },
+                                    get: { entry.sets.first?.reps ?? 0 },
                                     set: { newValue in
-                                        ensureSingleSetForVuelta()
+                                        ensureSingleSetForCircuit()
                                         entry.sets.first?.reps = newValue
                                         entry.sets.first?.seconds = nil
                                         entry.sets.first?.loadKg = nil
@@ -148,12 +142,12 @@ struct ExerciseDetailView: View {
                             IntControlRow(
                                 title: "Series",
                                 value: Binding(
-                                    get: { max(entry.sets.count, 1) },
+                                    get: { entry.sets.count },
                                     set: { newCount in
-                                        resizeSets(to: max(newCount, 1))
+                                        resizeSets(to: newCount)
                                     }
                                 ),
-                                range: 1...30,
+                                range: 0...30,
                                 step: 1
                             )
 
@@ -213,10 +207,7 @@ struct ExerciseDetailView: View {
             }
 
             Section("Progreso") {
-                ExerciseProgressSectionView(
-                    snapshot: progressSnapshot,
-                    showLowerIsBetterFootnote: entry.usesBlockEditor || entry.usesTraverseEditor
-                )
+                ExerciseProgressSectionView(snapshot: progressSnapshot)
             }
 
             Section("Notas") {
@@ -240,6 +231,7 @@ struct ExerciseDetailView: View {
         }
         .scrollContentBackground(.hidden)
         .listStyle(.plain)
+        .xkalaScreenBackground(.calendar)
         .navigationTitle(entry.exercise.name)
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
@@ -248,13 +240,9 @@ struct ExerciseDetailView: View {
             }
         }
         .onAppear {
-            ensureAtLeastOneSet()
-            normalizeSetsToExerciseRules()
-            if entry.usesBlockEditor || entry.usesTraverseEditor {
-                ensureSingleSetForClimb()
+            if !entry.sets.isEmpty {
+                normalizeSetsToExerciseRules()
             }
-            if entry.usesVueltaEditor { ensureSingleSetForVuelta() }
-            if entry.usesIntermittentHangboardEditor { configureIntermittentDefaultsIfNeeded() }
         }
         .onChange(of: entry.isDone) { _, newValue in
             if newValue { triggerCompletionFeedback() }
@@ -275,8 +263,10 @@ struct ExerciseDetailView: View {
         }
     }
 
-    private func ensureSingleSetForVuelta() {
-        ensureAtLeastOneSet()
+    private func ensureSingleSetForCircuit() {
+        if entry.sets.isEmpty {
+            entry.sets.append(SetRecord.make(for: entry.exercise))
+        }
 
         while entry.sets.count > 1 {
             if let last = entry.sets.last {
@@ -291,12 +281,14 @@ struct ExerciseDetailView: View {
         entry.sets.first?.loadKg = nil
 
         if entry.sets.first?.reps == nil {
-            entry.sets.first?.reps = 2
+            entry.sets.first?.reps = 0
         }
     }
 
     private func ensureSingleSetForClimb() {
-        ensureAtLeastOneSet()
+        if entry.sets.isEmpty {
+            entry.sets.append(SetRecord.make(for: entry.exercise))
+        }
 
         while entry.sets.count > 1 {
             if let last = entry.sets.last {
@@ -315,8 +307,8 @@ struct ExerciseDetailView: View {
 
     private var repsTitle: String {
         let name = entry.exercise.name.lowercased()
-        let cat = entry.exercise.category.lowercased()
-        if cat.contains("campus") || name.contains("campus") {
+        let cat = entry.exercise.exerciseCategoryKeyForSemantics
+        if cat == "campus" || name.contains("campus") {
             return "Repeticiones"
         }
         return "Reps"
@@ -460,7 +452,7 @@ struct ExerciseDetailView: View {
                 TimeControlRow(
                     title: "Tiempo ejercicio",
                     seconds: $workSeconds,
-                    range: 1...600,
+                    range: 0...600,
                     stepSeconds: 1
                 )
 
@@ -474,14 +466,14 @@ struct ExerciseDetailView: View {
                 IntControlRow(
                     title: "Nº rondas",
                     value: $rounds,
-                    range: 1...50,
+                    range: 0...50,
                     step: 1
                 )
 
                 IntControlRow(
                     title: "Nº ciclos",
                     value: $cycles,
-                    range: 1...30,
+                    range: 0...30,
                     step: 1
                 )
 
@@ -502,27 +494,32 @@ struct ExerciseDetailView: View {
 
     // MARK: - Lógica de sets (uniforme)
 
-    private func ensureAtLeastOneSet() {
-        if entry.sets.isEmpty {
-            entry.sets.append(SetRecord.make(for: entry.exercise))
-        }
+    private func ensureSetForMetricEdit() {
+        guard entry.sets.isEmpty else { return }
+        entry.sets.append(SetRecord.make(for: entry.exercise))
+        normalizeSetsToExerciseRules()
     }
 
     private func resizeSets(to targetCount: Int) {
-        ensureAtLeastOneSet()
-
+        let safeTarget = max(0, targetCount)
         let current = entry.sets.count
-        guard targetCount != current else { return }
+        guard safeTarget != current else { return }
 
-        if targetCount > current {
-            let prototype = entry.sets.first ?? SetRecord.make(for: entry.exercise)
-            let extra = targetCount - current
+        if safeTarget == 0 {
+            for set in entry.sets {
+                context.delete(set)
+            }
+            entry.sets.removeAll()
+            return
+        }
+
+        if safeTarget > current {
+            let extra = safeTarget - current
             for _ in 0..<extra {
-                entry.sets.append(cloneSet(prototype))
+                entry.sets.append(SetRecord.make(for: entry.exercise))
             }
         } else {
-            let removeCount = current - targetCount
-            guard removeCount > 0 else { return }
+            let removeCount = current - safeTarget
             for _ in 0..<removeCount {
                 if let last = entry.sets.last {
                     context.delete(last)
@@ -535,7 +532,7 @@ struct ExerciseDetailView: View {
     }
 
     private func applyRepsToAll(_ reps: Int) {
-        ensureAtLeastOneSet()
+        ensureSetForMetricEdit()
         for s in entry.sets {
             s.reps = reps
             s.seconds = nil
@@ -546,7 +543,7 @@ struct ExerciseDetailView: View {
     }
 
     private func applySecondsToAll(_ seconds: Int) {
-        ensureAtLeastOneSet()
+        ensureSetForMetricEdit()
         for s in entry.sets {
             s.seconds = seconds
             if !entry.exercise.isIntermittentHangboardExercise {
@@ -559,23 +556,21 @@ struct ExerciseDetailView: View {
     }
 
     private func applyIntermittentWorkSecondsToAll(_ seconds: Int) {
-        ensureAtLeastOneSet()
-        let safeSeconds = max(1, seconds)
+        ensureSetForMetricEdit()
         for s in entry.sets {
-            s.seconds = safeSeconds
+            s.seconds = max(0, seconds)
         }
     }
 
     private func applyIntermittentRoundsToAll(_ rounds: Int) {
-        ensureAtLeastOneSet()
-        let safeRounds = max(1, rounds)
+        ensureSetForMetricEdit()
         for s in entry.sets {
-            s.reps = safeRounds
+            s.reps = max(0, rounds)
         }
     }
 
     private func applyLoadToAll(_ load: Double) {
-        ensureAtLeastOneSet()
+        ensureSetForMetricEdit()
         guard entry.exercise.loadAllowed else {
             for s in entry.sets { s.loadKg = nil }
             return
@@ -586,12 +581,13 @@ struct ExerciseDetailView: View {
     }
 
     private func normalizeSetsToExerciseRules() {
-        ensureAtLeastOneSet()
+        guard !entry.sets.isEmpty else { return }
 
         if entry.exercise.isIntermittentHangboardExercise {
             for s in entry.sets {
-                if s.seconds == nil { s.seconds = 7 }
-                if s.reps == nil { s.reps = 6 }
+                if s.seconds == nil { s.seconds = 0 }
+                if s.reps == nil { s.reps = 0 }
+                if entry.exercise.loadAllowed, s.loadKg == nil { s.loadKg = 0 }
             }
             if !entry.exercise.loadAllowed {
                 for s in entry.sets { s.loadKg = nil }
@@ -607,30 +603,6 @@ struct ExerciseDetailView: View {
 
         if !entry.exercise.loadAllowed {
             for s in entry.sets { s.loadKg = nil }
-        }
-    }
-
-    private func cloneSet(_ set: SetRecord) -> SetRecord {
-        SetRecord(
-            reps: set.reps,
-            seconds: set.seconds,
-            loadKg: set.loadKg
-        )
-    }
-
-    private func configureIntermittentDefaultsIfNeeded() {
-        ensureAtLeastOneSet()
-        for s in entry.sets {
-            if s.seconds == nil || s.seconds == 0 {
-                s.seconds = 7
-            }
-            if s.reps == nil || s.reps == 0 {
-                s.reps = 6
-            }
-        }
-
-        if intermittentRestSeconds(from: entry.entryNotes) == nil {
-            entry.entryNotes = writingIntermittentRestSeconds(3, into: entry.entryNotes)
         }
     }
 

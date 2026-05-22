@@ -4,40 +4,41 @@ globs: ["**/*"]
 alwaysApply: true
 ---
 
-Xkala es una app iOS para escaladores.
+# Xkala — Contexto global
 
-Stack:
+Xkala es una app iOS para escaladores orientada a entender la evolución del usuario, no solo a registrar entrenamientos.
+
+## Stack
+
 - SwiftUI
 - SwiftData local
+- ModelContainer manual
 - Sin CloudKit
+- Persistencia real local
 
-Modelo:
+## Modelo base
+
 - WorkoutDay → WorkoutEntry → SetRecord
 - Exercise reutilizable
+- UserProfile local único
 
-Objetivo:
-Seguir el progreso del usuario, no solo registrar entrenamientos.
+## Principios
 
-Estadísticas:
-- Existe `StatsView` (globales); métricas siempre **derivadas**, no persistir agregados ni PRs
-- Calculadoras puras: `StatsCalculator`, `ExerciseProgressCalculator`; vistas con poca lógica
-- Récords recientes = última **mejora estricta** de máximo histórico por ejercicio (cronológico; empates posteriores no cuentan); reps, seconds, loadKg según calculadora
-
-Reglas clave:
-- No romper el histórico
+- Preservar histórico existente
 - Evitar duplicados de Exercise
-- No persistir estadísticas derivadas todavía
-- Separar lógica de cálculo, persistencia y UI
-- Estadísticas globales separadas del detalle por ejercicio (`ExerciseDetailView`)
+- Evitar migraciones innecesarias
+- No persistir estadísticas, récords ni agregados derivados
+- Separar persistencia, cálculo y UI
+- Mantener lógica compleja fuera de las vistas
+- Priorizar cambios pequeños, seguros y verificables en iPhone real
 
-Forma de trabajar:
-- Cambios pequeños y verificables
-- Priorizar pruebas en iPhone real
-- Evitar refactors grandes
-- Pedir contexto antes de asumir
+## Reglas compartidas
 
-Development philosophy:
+La fuente principal de reglas vive en `_shared`:
 
-- Build the smallest possible version that delivers value
-- Avoid designing future features prematurely
-- Prefer working software over perfect architecture
+- `_shared/01-architecture.md`
+- `_shared/02-domain-rules.md`
+- `_shared/03-swiftdata-safety.md`
+- `_shared/04-working-style.md`
+
+Este archivo solo resume el contexto global.

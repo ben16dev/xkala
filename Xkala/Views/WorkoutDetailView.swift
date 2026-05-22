@@ -45,15 +45,16 @@ struct WorkoutDetailView: View {
                 .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
             }
 
-            Section("Sensaciones") {
-                TextField(
-                    "",
-                    text: $workout.notes,
-                    prompt: Text(workout.categoriesSummary ?? "Cómo te has encontrado…"),
-                    axis: .vertical
-                )
-                    .lineLimit(3...8)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            Section("Planificación") {
+                WorkoutSessionPlanningSection(workout: workout)
+                    .xkalaCard()
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+            }
+
+            Section("Categorías") {
+                categoriesSummaryCard
                     .xkalaCard()
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
@@ -112,7 +113,10 @@ struct WorkoutDetailView: View {
         }
         .scrollContentBackground(.hidden)
         .listStyle(.plain)
+        .xkalaScreenBackground(.calendar)
         .navigationTitle(navigationTitle)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .navigationDestination(item: $selectedEntry) { entry in
             ExerciseDetailView(entry: entry)
         }
@@ -122,22 +126,41 @@ struct WorkoutDetailView: View {
                     NavigationLink {
                         AddExerciseView(workout: workout)
                     } label: {
-                        XkalaActionButton(
-                            title: "Añadir",
-                            systemImage: "plus"
-                        )
+                        XkalaToolbarIconButton(systemImage: "plus")
                     }
+                    .buttonStyle(.plain)
+                    .tint(.secondary)
+                    .accessibilityLabel("Añadir ejercicio")
                 }
+                .xkalaIndependentToolbarIcon()
             }
         }
         .onAppear {
             workout.applySessionTypeConsistency()
+            workout.syncDurationMinutesFromSessionTimer()
         }
         .onReceive(durationTick) { _ in
-            // Solo refrescamos si está en curso.
             guard workout.startedAt != nil, workout.endedAt == nil else { return }
             now = Date()
+            workout.syncDurationMinutesFromSessionTimer()
         }
+    }
+
+    private var categoriesSummaryCard: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if let summary = workout.categoriesSummary {
+                Text(summary)
+                    .font(.subheadline)
+                    .foregroundStyle(.primary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                Text("Sin categorías detectadas")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .padding(.vertical, 2)
     }
 
     private var navigationTitle: String {
@@ -169,8 +192,7 @@ struct WorkoutDetailView: View {
                 // — Sin iniciar —
                 Button {
                     let started = Date()
-                    workout.startedAt = started
-                    workout.endedAt = nil
+                    workout.startSessionTimer(at: started)
                     now = started
                     try? context.save()
                 } label: {
@@ -222,8 +244,9 @@ struct WorkoutDetailView: View {
 
                 HStack(spacing: 12) {
                     Button {
-                        workout.endedAt = Date()
-                        now = Date()
+                        let end = Date()
+                        workout.finishSessionTimer(at: end)
+                        now = end
                         try? context.save()
                     } label: {
                         XkalaActionButton(title: "Finalizar", systemImage: "stop.fill")
@@ -231,9 +254,7 @@ struct WorkoutDetailView: View {
                     .buttonStyle(.plain)
 
                     Button {
-                        workout.startedAt = nil
-                        workout.endedAt = nil
-                        try? context.save()
+                        clearSessionTimer()
                     } label: {
                         XkalaActionButton(title: "Reiniciar", systemImage: "arrow.counterclockwise")
                     }
@@ -255,10 +276,8 @@ struct WorkoutDetailView: View {
 
                 HStack(spacing: 12) {
                     Button {
-                        workout.startedAt = nil
-                        workout.endedAt = nil
+                        clearSessionTimer()
                         showManualInput = false
-                        try? context.save()
                     } label: {
                         XkalaActionButton(title: "Reiniciar", systemImage: "arrow.counterclockwise")
                     }
@@ -289,7 +308,7 @@ struct WorkoutDetailView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
-                .background(Color(.secondarySystemBackground))
+                .background(XkalaTheme.card.opacity(0.75))
                 .clipShape(Capsule())
                 .onSubmit { applyManualInput() }
 
@@ -304,11 +323,14 @@ struct WorkoutDetailView: View {
         }
     }
 
+    private func clearSessionTimer() {
+        workout.clearSessionTimer()
+        try? context.save()
+    }
+
     private func applyManualInput() {
         guard let totalSeconds = SessionTimeFormatter.parseInput(manualInput), totalSeconds > 0 else { return }
-        let base = workout.date
-        workout.startedAt = base
-        workout.endedAt = base.addingTimeInterval(TimeInterval(totalSeconds))
+        workout.applyManualSessionDuration(totalSeconds: totalSeconds)
         showManualInput = false
         manualInput = ""
         try? context.save()
@@ -411,7 +433,7 @@ private struct EntryCardContent: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 } else {
-                    Text("\(entry.exercise.category) · Intensidad \(entry.intensity) · Series \(entry.sets.count)")
+                    Text("\(entry.exercise.displayCategoryLabel) · Intensidad \(entry.intensity) · Series \(entry.sets.count)")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }

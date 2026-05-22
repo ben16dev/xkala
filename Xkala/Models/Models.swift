@@ -37,6 +37,26 @@ final class WorkoutDay {
     @Relationship(deleteRule: .cascade)
     var entries: [WorkoutEntry]
 
+    // MARK: - Planificación de sesión (opcionales → migración ligera)
+
+    /// Duración percibida de la sesión en minutos.
+    var durationMinutes: Int?
+
+    /// RPE 1–10: «¿Cómo de dura fue la sesión?»
+    var rpe: Int?
+
+    /// Fatiga percibida 1–10.
+    var perceivedFatigue: Int?
+
+    /// Sensación de dedos 1–10 (10 = sin molestias).
+    var fingerSensation: Int?
+
+    /// Notas de dolor u otras molestias.
+    var painNotes: String?
+
+    /// `TrainingMethod.rawValue`; string para compatibilidad SwiftData.
+    var trainingMethodRawValue: String?
+
     init(
         date: Date = Date(),
         name: String = "",
@@ -60,6 +80,122 @@ final class WorkoutDay {
     /// Clave de día (inicio del día) útil para agrupar en estadísticas futuras.
     var dayKey: Date {
         Calendar.current.startOfDay(for: date)
+    }
+}
+
+extension WorkoutDay {
+    /// Acceso al objetivo de sesión; solo persiste `trainingMethodRawValue`.
+    var trainingMethod: TrainingMethod? {
+        get {
+            guard let raw = trainingMethodRawValue else { return nil }
+            return TrainingMethod(rawValue: raw)
+        }
+        set {
+            trainingMethodRawValue = newValue?.rawValue
+        }
+    }
+
+    /// Carga de sesión derivada: minutos × RPE cuando ambos existen y son válidos.
+    var sessionLoad: Int? {
+        guard let minutes = effectiveDurationMinutes, let rpe else { return nil }
+        guard minutes > 0, (1...10).contains(rpe) else { return nil }
+        return minutes * rpe
+    }
+
+    /// Recorta escalas 1–10 y duración inválida guardadas fuera de rango (sin tocar método ni notas).
+    func normalizePlanningScalars() {
+        rpe = Self.clampedPlanningScale(rpe)
+        perceivedFatigue = Self.clampedPlanningScale(perceivedFatigue)
+        fingerSensation = Self.clampedPlanningScale(fingerSensation)
+        syncDurationMinutesFromSessionTimer()
+        if let minutes = durationMinutes, minutes <= 0 {
+            durationMinutes = nil
+        }
+        if let raw = trainingMethodRawValue, TrainingMethod(rawValue: raw) == nil {
+            trainingMethodRawValue = nil
+        }
+    }
+
+    /// Actualiza `durationMinutes` desde el cronómetro o la duración manual (`startedAt` / `endedAt`).
+    /// No borra minutos guardados en sesiones legacy sin timer.
+    func syncDurationMinutesFromSessionTimer() {
+        guard startedAt != nil else { return }
+        let seconds = SessionTimeFormatter.seconds(from: self)
+        guard seconds > 0 else {
+            durationMinutes = nil
+            return
+        }
+        durationMinutes = max(1, Int((Double(seconds) / 60.0).rounded()))
+    }
+
+    /// Inicia el cronómetro de sesión (no cierra ni recalcula fechas de cierre).
+    func startSessionTimer(at startDate: Date = Date()) {
+        startedAt = startDate
+        endedAt = nil
+    }
+
+    /// Finaliza el cronómetro: fija `endedAt`, recalcula inicio real y alinea `date`.
+    /// Solo para detención definitiva; una futura pausa no debe llamar a este método.
+    func finishSessionTimer(at endDate: Date = Date()) {
+        guard startedAt != nil, endedAt == nil else { return }
+        let elapsedSeconds = SessionTimeFormatter.seconds(from: self, referenceEnd: endDate)
+        endedAt = endDate
+        let computedStartDate = endDate.addingTimeInterval(-Double(elapsedSeconds))
+        startedAt = computedStartDate
+        date = computedStartDate
+        syncDurationMinutesFromSessionTimer()
+    }
+
+    /// Aplica duración manual anclada a `date` (sin cronómetro en curso).
+    func applyManualSessionDuration(totalSeconds: Int) {
+        guard totalSeconds > 0 else { return }
+        let base = date
+        startedAt = base
+        endedAt = base.addingTimeInterval(TimeInterval(totalSeconds))
+        syncDurationMinutesFromSessionTimer()
+    }
+
+    /// Reinicia el cronómetro y borra la duración derivada del timer.
+    func clearSessionTimer() {
+        startedAt = nil
+        endedAt = nil
+        durationMinutes = nil
+    }
+
+    /// Minutos para planificación: valor persistido o derivado del timer en memoria.
+    var effectiveDurationMinutes: Int? {
+        if let minutes = durationMinutes, minutes > 0 { return minutes }
+        guard startedAt != nil else { return nil }
+        let seconds = SessionTimeFormatter.seconds(from: self)
+        guard seconds > 0 else { return nil }
+        return max(1, Int((Double(seconds) / 60.0).rounded()))
+    }
+
+    private static func clampedPlanningScale(_ value: Int?) -> Int? {
+        guard let value else { return nil }
+        return min(max(value, 1), 10)
+    }
+
+    /// Notas visibles al usuario (sin marcador interno `[IMPORT:…]`).
+    var displayNotes: String {
+        notes
+            .replacingOccurrences(
+                of: #"\[IMPORT:[^\]]+\]"#,
+                with: "",
+                options: .regularExpression
+            )
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Actualiza las notas editables preservando el marcador de importación, si existe.
+    func applyDisplayNotes(_ value: String) {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let batchId = WorkoutImportBatchNotes.extractImportBatchId(from: notes) {
+            let marker = WorkoutImportBatchNotes.importBatchMarker(for: batchId)
+            notes = trimmed.isEmpty ? marker : "\(trimmed)\n\(marker)"
+        } else {
+            notes = trimmed
+        }
     }
 }
 
@@ -187,8 +323,8 @@ extension WorkoutEntry {
     /// Misma semántica que `isTraverse`: UI de travesía (letra, intentos).
     var usesTraverseEditor: Bool { isTraverse }
 
-    /// Ejercicios tipo “Vuelta …”: un solo set, reps = nº vueltas (heurística por nombre).
-    var usesVueltaEditor: Bool { exercise.isVueltaStyleExercise }
+    /// Circuito / vuelta de calentamiento: un solo set, reps = nº vueltas (nombre canónico o histórico).
+    var usesCircuitEditor: Bool { exercise.isCircuitStyleExercise }
 
     /// `Suspensiones intermitentes` y `Test de Suspensiones intermitentes` en Hangboard.
     var usesIntermittentHangboardEditor: Bool { exercise.isIntermittentHangboardExercise }
@@ -235,50 +371,109 @@ extension WorkoutDay {
 
 // MARK: - WorkoutDay display naming (sin tocar persistencia)
 extension WorkoutDay {
-    var physicalCategories: [String] {
-        let excluded = ["bloque", "bloques", "travesia", "travesias"]
-
-        let categories = Set(
-            entries.compactMap { entry -> String? in
-                let category = entry.exercise.category
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !category.isEmpty else { return nil }
-
-                let normalized = category
-                    .lowercased()
-                    .folding(options: .diacriticInsensitive, locale: .current)
-
-                return excluded.contains(normalized) ? nil : category
-            }
-        )
-
-        return categories.sorted {
+    /// Etiquetas únicas de categoría detectadas en la sesión (solo lectura en UI).
+    var sessionCategoryLabels: [String] {
+        let labels = Set(entries.compactMap { Self.displayCategoryLabel(for: $0) })
+        return labels.sorted {
             $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
         }
     }
 
     var sessionKindName: String? {
-        let hasPhysical = !physicalCategories.isEmpty
-        let hasBlock = entries.contains { $0.isBlock }
-        let hasTraverse = entries.contains { $0.isTraverse }
-
-        if hasPhysical && hasBlock { return "Físico y Boulder" }
-        if hasPhysical && hasTraverse { return "Físico y Travesía" }
-        if hasPhysical { return "Físico" }
-        if hasBlock { return "Boulder" }
-        if hasTraverse { return "Travesía" }
-
-        return nil
+        let parts = sessionActivityNameParts
+        guard !parts.isEmpty else { return nil }
+        return Self.joinedSpanishList(parts)
     }
 
     var categoriesSummary: String? {
-        guard !physicalCategories.isEmpty else { return nil }
-        return physicalCategories.joined(separator: " · ")
+        let labels = sessionCategoryLabels
+        guard !labels.isEmpty else { return nil }
+        return labels.joined(separator: " · ")
     }
 
     var categoriesBasedName: String? {
         sessionKindName
     }
+
+    // MARK: - Detección de actividades para nombre automático
+
+    private var sessionActivityNameParts: [String] {
+        var parts: [String] = []
+        if hasPhysicalTraining { parts.append("Físico") }
+        if hasBlocksActivity { parts.append("Bloques") }
+        if hasTraverseActivity { parts.append("Travesía") }
+        if hasHangboardActivity { parts.append("Hangboard") }
+        if hasCampusActivity { parts.append("Campus") }
+        return parts
+    }
+
+    private var hasPhysicalTraining: Bool {
+        entries.contains { entry in
+            guard !entry.isBlock, !entry.isTraverse else { return false }
+            let category = entry.exercise.exerciseCategoryKeyForSemantics
+            guard category != "hangboard", category != "campus" else { return false }
+            return Self.physicalCategoryKeys.contains(category)
+        }
+    }
+
+    private var hasBlocksActivity: Bool {
+        entries.contains { entry in
+            entry.isBlock || Self.isBoulderCategory(entry.exercise.exerciseCategoryKeyForSemantics)
+        }
+    }
+
+    private var hasTraverseActivity: Bool {
+        entries.contains { entry in
+            entry.isTraverse || Self.isTraverseCategory(entry.exercise.exerciseCategoryKeyForSemantics)
+        }
+    }
+
+    private var hasHangboardActivity: Bool {
+        entries.contains { $0.exercise.exerciseCategoryKeyForSemantics == "hangboard" }
+    }
+
+    private var hasCampusActivity: Bool {
+        entries.contains { $0.exercise.exerciseCategoryKeyForSemantics == "campus" }
+    }
+
+    private static let physicalCategoryKeys: Set<String> = [
+        "fuerza", "core", "movilidad", "resistencia", "calentamiento", "otros",
+    ]
+
+    static func displayCategoryLabel(for entry: WorkoutEntry) -> String? {
+        if entry.isBlock { return "Bloques" }
+        if entry.isTraverse { return "Travesía" }
+
+        let categoryKey = entry.exercise.exerciseCategoryKeyForSemantics
+        if isBoulderCategory(categoryKey) { return "Bloques" }
+        if isTraverseCategory(categoryKey) { return "Travesía" }
+
+        let label = entry.exercise.displayCategoryLabel
+        return label.isEmpty ? nil : label
+    }
+
+    static func joinedSpanishList(_ items: [String]) -> String {
+        switch items.count {
+        case 0:
+            return ""
+        case 1:
+            return items[0]
+        case 2:
+            return "\(items[0]) y \(items[1])"
+        default:
+            let head = items.dropLast().joined(separator: ", ")
+            return "\(head) y \(items[items.count - 1])"
+        }
+    }
+
+    private static func isBoulderCategory(_ key: String) -> Bool {
+        key == "boulder" || key == "bloques" || key == "bloque"
+    }
+
+    private static func isTraverseCategory(_ key: String) -> Bool {
+        key == "travesia" || key == "travesias"
+    }
+
 }
 
 // MARK: - UserProfile
@@ -367,14 +562,53 @@ extension Exercise {
         Self.normalizedKeyForSemanticMatching(name)
     }
 
-    /// Clave estable para categoría.
-    var exerciseCategoryKeyForSemantics: String {
-        Self.normalizedKeyForSemanticMatching(category)
+    /// Clave estable para categoría (alias históricos → canónico interno).
+    static func canonicalCategorySemanticKey(_ normalizedCategory: String) -> String {
+        switch normalizedCategory {
+        case "fuerza", "fuerza general": return "fuerza"
+        case "resistencia", "acondicionamiento": return "resistencia"
+        default: return normalizedCategory
+        }
     }
 
-    /// Heurística por nombre: ejercicios “Vuelta …” en catálogo (contiene subcadena `vuelta`).
-    var isVueltaStyleExercise: Bool {
-        exerciseNameKeyForSemantics.contains("vuelta")
+    /// Clave estable para categoría.
+    var exerciseCategoryKeyForSemantics: String {
+        Self.canonicalCategorySemanticKey(Self.normalizedKeyForSemanticMatching(category))
+    }
+
+    /// Etiqueta de categoría para UI y estadísticas (no modifica `category` persistido).
+    var displayCategoryLabel: String {
+        if let standard = Self.displayLabel(forCategorySemanticKey: exerciseCategoryKeyForSemantics) {
+            return standard
+        }
+        return category.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Mapeo clave semántica → nombre visible; `nil` si no hay etiqueta estándar.
+    static func displayLabel(forCategorySemanticKey key: String) -> String? {
+        if key == "boulder" || key == "bloques" || key == "bloque" { return "Bloques" }
+        if key == "travesia" || key == "travesias" { return "Travesía" }
+        switch key {
+        case "hangboard": return "Hangboard"
+        case "campus": return "Campus"
+        case "fuerza": return "Fuerza general"
+        case "core": return "Core"
+        case "movilidad": return "Movilidad"
+        case "resistencia": return "Acondicionamiento"
+        case "calentamiento": return "Calentamiento"
+        case "test": return "Test"
+        case "otros": return "Otros"
+        default: return nil
+        }
+    }
+
+    /// Circuito fluido/técnico y nombres históricos “Vuelta …” (misma UX: un solo control de vueltas).
+    var isCircuitStyleExercise: Bool {
+        let k = exerciseNameKeyForSemantics
+        return k == "circuito fluido"
+            || k == "circuito tecnico"
+            || k == "vuelta fluida"
+            || k == "vuelta tecnica"
     }
 
     /// Intermitentes en regleta: canónico o variante Test; misma UX que el editor paramétrico.

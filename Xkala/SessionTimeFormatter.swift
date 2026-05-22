@@ -23,10 +23,11 @@ enum SessionTimeFormatter {
         return String(format: "%02d:%02d", h, m)
     }
 
-    /// Calcula los segundos transcurridos desde startedAt hasta endedAt (o Date() si sigue en curso).
-    static func seconds(from workout: WorkoutDay) -> Int {
+    /// Calcula los segundos transcurridos desde `startedAt` hasta `endedAt`.
+    /// Si la sesión sigue en curso (`endedAt == nil`), usa `referenceEnd` o `Date()`.
+    static func seconds(from workout: WorkoutDay, referenceEnd: Date? = nil) -> Int {
         guard let start = workout.startedAt else { return 0 }
-        let end = workout.endedAt ?? Date()
+        let end = workout.endedAt ?? referenceEnd ?? Date()
         return max(0, Int(end.timeIntervalSince(start)))
     }
 

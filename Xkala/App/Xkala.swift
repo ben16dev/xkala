@@ -19,7 +19,7 @@ struct Xkala: App {
     var body: some Scene {
         WindowGroup {
             ZStack {
-                XkalaTheme.bg.ignoresSafeArea()
+                XkalaTheme.calendarScreenBackground.ignoresSafeArea()
                 ContentView()
             }
             .preferredColorScheme(.dark)

@@ -1,26 +1,98 @@
 # Xkala — Reglas de dominio
 
+Estas reglas definen el significado de los datos y cómo deben interpretarse.
+
 ## Exercise
-- Exercise.mode solo puede ser "reps" o "seconds".
-- Si mode == "reps", SetRecord debe usar reps.
-- Si mode == "seconds", SetRecord debe usar seconds.
-- El tiempo en UI debe mostrarse en formato mm:ss.
-- loadKg solo tiene sentido si Exercise.loadAllowed == true.
-- isArchived se usa para ocultar ejercicios sin borrarlos.
+
+Reglas:
+
+- `mode ∈ { reps, seconds }`
+- Si `mode == reps` → usar `SetRecord.reps`
+- Si `mode == seconds` → usar `SetRecord.seconds`
+- `reps` y `seconds` nunca se mezclan
+- `loadKg` solo tiene sentido si `loadAllowed == true`
+- `isArchived` oculta ejercicios sin borrar histórico
+
+## SetRecord
+
+Interpretación:
+
+- `reps = nil` → no aplica
+- `seconds = nil` → no aplica
+- `loadKg = nil` → sin carga
+- Tiempo en UI → formato `mm:ss`
+- Valores ambiguos → interpretación conservadora
 
 ## Relaciones
-- No romper la relación WorkoutDay → WorkoutEntry → SetRecord.
-- No mezclar progreso real con placeholders o datos vacíos sin justificarlo.
-- Si una métrica depende de datos ambiguos, priorizar interpretación conservadora.
 
-## Bloque y Travesía
-- Bloques y Travesías se modelan como ejercicios plantilla, no como Exercise independientes por instancia.
-- Los ejercicios base son "Bloque" y "Travesía".
-- 1 WorkoutEntry = 1 bloque real o 1 travesía real.
-- En Bloque y Travesía, el completado se guarda en WorkoutEntry.isDone.
-- En Bloque y Travesía, los intentos se guardan en SetRecord.reps usando un único SetRecord.
-- En Bloque, climbIdentifier admite número o texto libre.
-- En Travesía, climbIdentifier debe ser una única letra A–Z.
-- En Bloque, climbGradeColor solo puede ser "green", "yellow", "orange" o "purple".
-- No reutilizar intensity para representar el grado/color de Bloque.
-- No usar entryNotes como fuente principal de datos estructurados de Bloques/Travesías.
+Debe mantenerse:
+
+```text
+WorkoutDay
+ └── WorkoutEntry
+      └── SetRecord
+
+Reglas:
+
+No romper histórico
+No crear referencias inconsistentes
+No mezclar datos reales con placeholders sin justificar
+Ejercicios Bloque / Travesía
+
+Modelo:
+
+Son ejercicios plantilla
+NO crear un Exercise nuevo por bloque/travesía real
+Ejercicios base:
+Bloque
+Travesía
+
+Semántica:
+
+1 WorkoutEntry = 1 bloque real
+1 WorkoutEntry = 1 travesía real
+completado → WorkoutEntry.isDone
+intentos → SetRecord.reps
+usar un único SetRecord
+
+Restricciones:
+
+Bloque
+climbIdentifier → texto libre
+climbGradeColor ∈ { green, yellow, orange, purple }
+Travesía
+climbIdentifier ∈ { A...Z }
+
+No usar:
+
+intensity como grado
+entryNotes como estructura persistente
+múltiples sets innecesarios
+Métricas y progreso
+
+Siempre derivadas.
+
+Reglas:
+
+No persistir estadísticas
+No persistir récords (PRs)
+No persistir agregados
+Ignorar sets inválidos
+Ignorar placeholders
+Priorizar interpretación conservadora ante datos ambiguos
+Récords recientes
+
+Definición:
+
+Nueva mejor marca histórica real
+Cronología ascendente
+Mejora estricta del máximo acumulado
+Empates NO generan nuevo récord
+
+Compatibilidad:
+
+reps
+seconds
+loadKg
+
+Los récords: son derivados y no se persisten

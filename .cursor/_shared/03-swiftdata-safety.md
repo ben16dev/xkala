@@ -1,19 +1,87 @@
-# Xkala — Seguridad SwiftData
+# Xkala — Seguridad de datos y SwiftData
 
-## Riesgos a vigilar
-- Duplicados de Exercise por importación o creación manual.
-- Borrados que rompan histórico o relaciones.
-- Inconsistencias entre Exercise.mode y SetRecord.
-- Sets con datos inválidos o mezclados.
-- Estadísticas incorrectas por usar ejercicios duplicados o sets vacíos.
-- Refactors que compliquen innecesariamente SwiftData.
-- Cálculos de progreso hechos dentro de vistas de forma poco reutilizable.
-- Crear múltiples Exercise para bloques o travesías concretos en lugar de usar ejercicios plantilla.
-- Mezclar la semántica de intensity con el grado/color de Bloque.
-- Exponer editor genérico de sets en Bloques/Travesías y terminar persistiendo múltiples sets innecesarios.
+Este documento define riesgos que deben evitarse antes de implementar cambios.
 
-## Reglas de seguridad
-- Antes de proponer borrados, revisar impacto en histórico.
-- Antes de proponer cambios de modelo, justificar por qué no basta una solución derivada.
-- Antes de usar métricas agregadas, validar que no dependen de datos ambiguos o inconsistentes.
-- Evitar soluciones que multipliquen referencias o creen duplicados silenciosos.
+## Riesgos críticos
+
+### Histórico
+
+Evitar:
+
+- Borrados que rompan relaciones existentes
+- Pérdida de entrenamientos históricos
+- Cambios de modelo sin necesidad real
+- Migraciones evitables
+
+Prioridad:
+
+Preservar siempre datos existentes.
+
+---
+
+### Duplicados
+
+Evitar:
+
+- Crear `Exercise` duplicados
+- Importaciones que multipliquen ejercicios equivalentes
+- Referencias distintas para el mismo ejercicio lógico
+
+Impacto:
+
+Estadísticas erróneas, progreso fragmentado.
+
+---
+
+### Relaciones
+
+Debe mantenerse:
+
+```text
+WorkoutDay
+ └── WorkoutEntry
+      └── SetRecord
+
+Evitar:
+
+Relaciones huérfanas
+Cascadas no deseadas
+Referencias inconsistentes
+Sets inválidos
+
+Evitar:
+
+mezclar reps y seconds
+usar loadKg cuando loadAllowed == false
+guardar datos incompatibles con Exercise.mode
+persistir placeholders como datos reales
+
+Impacto:
+
+Métricas incorrectas y progreso ambiguo.
+
+Estadísticas
+
+Evitar:
+
+Persistir estadísticas derivadas
+Persistir récords
+Persistir agregados
+Calcular métricas desde datos ambiguos
+
+Regla:
+
+Las métricas deben derivarse del histórico.
+
+Arquitectura
+
+Evitar:
+
+lógica compleja en vistas
+duplicación de cálculos
+capas innecesarias
+refactors grandes sin beneficio claro
+Regla final
+
+Si una solución evita: tocar SwiftData, migrar modelos o
+modificar persistencia, esa solución tiene prioridad.

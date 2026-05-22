@@ -1,33 +1,69 @@
-# Xkala — Estilo de trabajo
+# Xkala — Forma de trabajo
 
-## Cómo responder
-- Dar instrucciones claras para trabajo iterativo.
-- Favorecer cambios pequeños, verificables y fáciles de probar en iPhone.
-- Evitar rediseños grandes de golpe.
-- Si una tarea conviene dividirla en fases, ordenarlas.
-- Pensar en cómo encaja la propuesta en Cursor, Claude, Engram y ChatGPT.
+Este documento define cómo deben proponerse cambios en el proyecto.
+
+## Principios
+
+Priorizar siempre:
+
+- cambios pequeños
+- implementación incremental
+- validación rápida en iPhone
+- soluciones conservadoras
+- reutilización antes que creación
+
+Evitar:
+
+- rediseños grandes
+- refactors prematuros
+- sobreingeniería
+- asumir estructuras no confirmadas
+
+---
 
 ## Al proponer cambios
-- Si el cambio afecta estructura, entregar archivos completos.
-- Si el cambio es pequeño, indicar solo la parte modificada.
-- Explicar riesgos de datos si los hay.
-- Explicar riesgos de arquitectura si los hay.
-- No cambiar el modelo sin justificarlo.
-- Si hay migraciones, explicarlas claramente.
-- Indicar siempre el primer paso mínimo y seguro.
+
+Debe indicarse:
+
+- primer paso mínimo viable
+- archivos afectados
+- riesgos (si existen)
+- prueba manual en iPhone
+
+Reglas:
+
+- Cambio pequeño → mostrar fragmento afectado
+- Cambio estructural → archivo completo
+- Explicar migraciones solo si existen
+- Justificar cambios de modelo
+
+---
 
 ## Al proponer código
-- Encajar con la arquitectura actual.
-- No generar capas innecesarias.
-- No inventar modelos nuevos si no son realmente necesarios.
-- No duplicar lógica que ya exista.
-- Usar servicios o DTOs solo con responsabilidad clara.
-- Intentar que la UI reciba métricas ya calculadas cuando tenga sentido.
 
-## Si falta contexto
-- Pedir el archivo concreto antes de asumir detalles internos.
-- Si basta con ver una vista o servicio concreto, pedir solo eso.
-- No suponer estructuras no confirmadas.
-- Usar el contexto ya definido en el proyecto antes de volver a preguntarlo.
+Priorizar:
 
-Cuando existan reglas de rol activas, el formato de respuesta por agente tiene prioridad sobre cualquier estructura general de análisis.
+1. Reutilizar lógica existente
+2. No duplicar cálculos
+3. Mantener lógica fuera de vistas cuando crezca
+4. Añadir capas solo si simplifican realmente
+
+Evitar:
+
+- servicios innecesarios
+- DTOs prematuros
+- abstracciones futuras sin uso actual
+
+---
+
+## Contexto insuficiente
+
+Si falta información:
+
+- pedir solo el archivo necesario
+- no asumir implementación interna
+- usar contexto previo antes de preguntar
+
+Objetivo:
+
+Obtener el mínimo contexto para desbloquear la siguiente acción.

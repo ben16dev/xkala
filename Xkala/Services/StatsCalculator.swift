@@ -12,34 +12,85 @@ enum StatsCalculator {
         let cutoff30Days = calendar.date(byAdding: .day, value: -30, to: now) ?? now
         let workoutsLast30Days = workouts.filter { $0.date >= cutoff30Days }.count
 
+        // Volumen realizado: todas las entradas marcadas como hechas, sin filtrar por éxito en bloque/travesía.
         let completedEntries = workouts
             .flatMap(\.entries)
             .filter(\.isDone)
         let totalCompletedExercises = completedEntries.count
 
-        let currentWeekWorkouts = workoutsInCurrentWeek(workouts, now: now, calendar: calendar)
         let favoriteCategory = favoriteCategory(from: completedEntries)
         let totalTrainingTime = totalValidTrainingTime(from: workouts)
         let recentRecords = recentRecords(from: completedEntries, workouts: workouts)
+        let sessionLoadLast7Days = totalSessionLoad(workouts: workouts, dayCount: 7, now: now, calendar: calendar)
+        let sessionLoadLast30Days = totalSessionLoad(workouts: workouts, dayCount: 30, now: now, calendar: calendar)
+        let mostFrequentMethod = mostFrequentTrainingMethod(
+            workouts: workouts,
+            dayCount: 30,
+            now: now,
+            calendar: calendar
+        )
 
         return GlobalStatsSnapshot(
             totalWorkouts: totalWorkouts,
             workoutsLast30Days: workoutsLast30Days,
             totalCompletedExercises: totalCompletedExercises,
-            currentWeekWorkouts: currentWeekWorkouts,
             favoriteCategory: favoriteCategory,
             totalTrainingTime: totalTrainingTime,
-            recentRecords: recentRecords
+            recentRecords: recentRecords,
+            sessionLoadLast7Days: sessionLoadLast7Days,
+            sessionLoadLast30Days: sessionLoadLast30Days,
+            mostFrequentTrainingMethodLast30Days: mostFrequentMethod
         )
     }
 
-    private static func workoutsInCurrentWeek(
-        _ workouts: [WorkoutDay],
-        now: Date,
-        calendar: Calendar
-    ) -> Int {
-        guard let weekInterval = calendar.dateInterval(of: .weekOfYear, for: now) else { return 0 }
-        return workouts.filter { weekInterval.contains($0.date) }.count
+    // MARK: - Carga de sesión (planificación)
+
+    static func totalSessionLoad(
+        workouts: [WorkoutDay],
+        dayCount: Int,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> Int? {
+        guard dayCount > 0,
+              let windowStart = calendar.date(
+                byAdding: .day,
+                value: -(dayCount - 1),
+                to: calendar.startOfDay(for: now)
+              )
+        else { return nil }
+
+        let loads = workouts
+            .filter { $0.date >= windowStart && $0.date <= now }
+            .compactMap(\.sessionLoad)
+
+        guard !loads.isEmpty else { return nil }
+        return loads.reduce(0, +)
+    }
+
+    static func mostFrequentTrainingMethod(
+        workouts: [WorkoutDay],
+        dayCount: Int,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> TrainingMethod? {
+        guard dayCount > 0,
+              let windowStart = calendar.date(
+                byAdding: .day,
+                value: -(dayCount - 1),
+                to: calendar.startOfDay(for: now)
+              )
+        else { return nil }
+
+        var counts: [TrainingMethod: Int] = [:]
+        for workout in workouts where workout.date >= windowStart && workout.date <= now {
+            guard let method = workout.trainingMethod else { continue }
+            counts[method, default: 0] += 1
+        }
+
+        guard let maxCount = counts.values.max(), maxCount > 0 else { return nil }
+
+        let top = counts.filter { $0.value == maxCount }.map(\.key).sorted { $0.displayName < $1.displayName }
+        return top.count == 1 ? top.first : nil
     }
 
     private static func favoriteCategory(from entries: [WorkoutEntry]) -> String {
@@ -47,15 +98,12 @@ enum StatsCalculator {
         var displayNameByKey: [String: String] = [:]
 
         for entry in entries {
-            let rawCategory = entry.exercise.category.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !rawCategory.isEmpty else { continue }
-
-            let key = normalize(rawCategory)
+            let key = entry.exercise.exerciseCategoryKeyForSemantics
             guard !key.isEmpty else { continue }
 
             countsByCategory[key, default: 0] += 1
             if displayNameByKey[key] == nil {
-                displayNameByKey[key] = rawCategory
+                displayNameByKey[key] = entry.exercise.displayCategoryLabel
             }
         }
 
