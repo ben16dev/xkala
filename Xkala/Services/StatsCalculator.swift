@@ -29,6 +29,7 @@ enum StatsCalculator {
             now: now,
             calendar: calendar
         )
+        let climbingStats = climbingStats(from: workouts)
 
         return GlobalStatsSnapshot(
             totalWorkouts: totalWorkouts,
@@ -39,11 +40,34 @@ enum StatsCalculator {
             recentRecords: recentRecords,
             sessionLoadLast7Days: sessionLoadLast7Days,
             sessionLoadLast30Days: sessionLoadLast30Days,
-            mostFrequentTrainingMethodLast30Days: mostFrequentMethod
+            mostFrequentTrainingMethodLast30Days: mostFrequentMethod,
+            climbingStats: climbingStats
         )
     }
 
+    // MARK: - Escalada (bloques y travesías)
+
+    static func climbingStats(from workouts: [WorkoutDay]) -> ClimbingStatsSnapshot? {
+        let entries = workouts.flatMap(\.entries)
+        let blockEntries = entries.filter(\.isBlock)
+        let traverseEntries = entries.filter(\.isTraverse)
+
+        let blocksTotal = blockEntries.count
+        let blocksSuccess = blockEntries.filter { $0.climbSuccess == true }.count
+        let traversesTotal = traverseEntries.count
+        let traversesSuccess = traverseEntries.filter { $0.climbSuccess == true }.count
+
+        let snapshot = ClimbingStatsSnapshot(
+            blocksTotal: blocksTotal,
+            blocksSuccess: blocksSuccess,
+            traversesTotal: traversesTotal,
+            traversesSuccess: traversesSuccess
+        )
+        return snapshot.isEmpty ? nil : snapshot
+    }
+
     // MARK: - Carga de sesión (planificación)
+
 
     static func totalSessionLoad(
         workouts: [WorkoutDay],

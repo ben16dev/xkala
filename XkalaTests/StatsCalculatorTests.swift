@@ -13,12 +13,14 @@ final class StatsCalculatorTests: XCTestCase {
     private func makeEntry(
         exercise: Exercise,
         isDone: Bool,
+        climbKind: String? = nil,
         climbSuccess: Bool? = nil
     ) -> WorkoutEntry {
         WorkoutEntry(
             exercise: exercise,
             isDone: isDone,
             sets: [SetRecord(reps: 5)],
+            climbKind: climbKind,
             climbSuccess: climbSuccess
         )
     }
@@ -66,5 +68,59 @@ final class StatsCalculatorTests: XCTestCase {
         let snapshot = StatsCalculator.snapshot(from: workouts, now: day)
 
         XCTAssertEqual(snapshot.favoriteCategory, "Fuerza general")
+    }
+
+    func test_climbingStats_countsBlocksAndTraversesWithSuccessOnlyWhenExplicit() {
+        let blockDone = makeEntry(
+            exercise: makeExercise(name: "Bloque A", category: "Climb"),
+            isDone: true,
+            climbKind: "block",
+            climbSuccess: true
+        )
+        let blockPending = makeEntry(
+            exercise: makeExercise(name: "Bloque B", category: "Climb"),
+            isDone: false,
+            climbKind: "block",
+            climbSuccess: nil
+        )
+        let blockFailed = makeEntry(
+            exercise: makeExercise(name: "Bloque C", category: "Climb"),
+            isDone: true,
+            climbKind: "block",
+            climbSuccess: false
+        )
+        let traverseDone = makeEntry(
+            exercise: makeExercise(name: "Travesía A", category: "Climb"),
+            isDone: true,
+            climbKind: "traverse",
+            climbSuccess: true
+        )
+        let traverseUnmarked = makeEntry(
+            exercise: makeExercise(name: "Travesía B", category: "Climb"),
+            isDone: true,
+            climbKind: "traverse",
+            climbSuccess: nil
+        )
+        let workouts = [
+            WorkoutDay(
+                date: day,
+                entries: [blockDone, blockPending, blockFailed, traverseDone, traverseUnmarked]
+            )
+        ]
+
+        let climbing = StatsCalculator.climbingStats(from: workouts)
+
+        XCTAssertEqual(climbing?.blocksTotal, 3)
+        XCTAssertEqual(climbing?.blocksSuccess, 1)
+        XCTAssertEqual(climbing?.traversesTotal, 2)
+        XCTAssertEqual(climbing?.traversesSuccess, 1)
+    }
+
+    func test_climbingStats_returnsNilWhenNoBlocksOrTraverses() {
+        let normal = makeEntry(exercise: makeExercise(name: "Pull-ups"), isDone: true)
+        let workouts = [WorkoutDay(date: day, entries: [normal])]
+
+        XCTAssertNil(StatsCalculator.climbingStats(from: workouts))
+        XCTAssertNil(StatsCalculator.snapshot(from: workouts, now: day).climbingStats)
     }
 }

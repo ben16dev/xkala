@@ -25,6 +25,8 @@ struct GlobalStatsSnapshot {
     let sessionLoadLast30Days: Int?
     /// Objetivo más frecuente en 30 días; `nil` si no hay objetivos registrados.
     let mostFrequentTrainingMethodLast30Days: TrainingMethod?
+    /// Bloques y travesías; `nil` si no hay ninguno registrado.
+    let climbingStats: ClimbingStatsSnapshot?
 
     static let empty = GlobalStatsSnapshot(
         totalWorkouts: 0,
@@ -35,6 +37,7 @@ struct GlobalStatsSnapshot {
         recentRecords: [],
         sessionLoadLast7Days: nil,
         sessionLoadLast30Days: nil,
-        mostFrequentTrainingMethodLast30Days: nil
+        mostFrequentTrainingMethodLast30Days: nil,
+        climbingStats: nil
     )
 }

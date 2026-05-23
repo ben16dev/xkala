@@ -59,6 +59,10 @@ struct StatsView: View {
                     )
                 }
 
+                if let climbing = snapshot.climbingStats {
+                    ClimbingStatsSection(snapshot: climbing)
+                }
+
                 RecentRecordsSection(records: snapshot.recentRecords)
             }
             .padding(.horizontal, 16)
@@ -67,6 +71,45 @@ struct StatsView: View {
         .xkalaScreenBackground(.calendar)
         .navigationTitle("Estadísticas")
         .navigationBarTitleDisplayMode(.large)
+    }
+}
+
+private struct ClimbingStatsSection: View {
+    let snapshot: ClimbingStatsSnapshot
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Escalada")
+                .font(.headline)
+                .foregroundStyle(.primary)
+
+            VStack(alignment: .leading, spacing: 12) {
+                ClimbingMetricRow(title: "Bloques realizados", value: "\(snapshot.blocksTotal)")
+                ClimbingMetricRow(title: "Bloques con éxito", value: "\(snapshot.blocksSuccess)")
+                ClimbingMetricRow(title: "Travesías realizadas", value: "\(snapshot.traversesTotal)")
+                ClimbingMetricRow(title: "Travesías con éxito", value: "\(snapshot.traversesSuccess)")
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .xkalaCard()
+        }
+    }
+}
+
+private struct ClimbingMetricRow: View {
+    let title: String
+    let value: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(title)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text(value)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(.primary)
+                .multilineTextAlignment(.trailing)
+        }
     }
 }
 
