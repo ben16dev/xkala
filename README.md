@@ -8,8 +8,8 @@ El objetivo del proyecto es evolucionar desde un simple registro de entrenamient
 
 <p align="center">
   <img src="screenshots/home.png" width="250">
-  <img src="screenshots/workout.png" width="250">
-  <img src="screenshots/sets.png" width="250">
+  <img src="screenshots/sessions.png" width="250">
+  <img src="screenshots/progress.png" width="250">
 </p>
 
 ## Funcionalidades actuales
