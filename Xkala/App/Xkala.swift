@@ -10,10 +10,16 @@ struct Xkala: App {
             WorkoutEntry.self,
             SetRecord.self,
             UserProfile.self,
-            ClimbingSessionData.self
+            ClimbingSessionData.self,
+            ClimbingRouteRecord.self
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-        return try! ModelContainer(for: schema, configurations: [modelConfiguration])
+        do {
+            return try ModelContainer(for: schema, configurations: [modelConfiguration])
+        } catch {
+            // Migración ligera fallida (p. ej. esquema incompatible tras cambio de modelo).
+            fatalError("No se pudo cargar SwiftData: \(error)")
+        }
     }()
 
     var body: some Scene {

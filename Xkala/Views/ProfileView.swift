@@ -50,8 +50,10 @@ struct ProfileView: View {
 // MARK: - Formulario
 
 private struct UserProfileFormContent: View {
+    @Environment(\.scenePhase) private var scenePhase
     @Bindable var profile: UserProfile
     let workouts: [WorkoutDay]
+    @State private var moodRefreshDate = Date()
     @State private var showBirthDateSheet = false
     @State private var showingAvatarPicker = false
     @AppStorage("selectedAvatarKind") private var selectedAvatarKindRawValue = AvatarKind.salamander.rawValue
@@ -80,11 +82,21 @@ private struct UserProfileFormContent: View {
         .sheet(isPresented: $showBirthDateSheet) {
             birthDateEditSheet
         }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active {
+                moodRefreshDate = Date()
+            }
+        }
+    }
+
+    private var profileAvatarMood: AvatarMood {
+        let _ = moodRefreshDate
+        return AvatarMoodCalculator.mood(for: workouts)
     }
 
     /// Mascota + halos; la tarjeta va debajo con separación para que no tape el personaje.
     private var profileAvatarSection: some View {
-        let mood = AvatarMoodCalculator.mood(for: workouts)
+        let mood = profileAvatarMood
         let glowColor: Color = mood == .strong
             ? Color.yellow.opacity(0.18)
             : XkalaTheme.mint.opacity(0.08)

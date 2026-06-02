@@ -74,11 +74,11 @@ enum InsightsCalculator {
             timeByKey[key, default: 0] += duration
             countByKey[key, default: 0] += 1
 
-            switch w.sessionTypeEnum {
-            case .training:
+            switch w.sessionOrigin {
+            case .gym:
                 trainByKey[key, default: 0] += 1
                 trainTimeByKey[key, default: 0] += duration
-            case .climbing:
+            case .rock:
                 climbByKey[key, default: 0] += 1
                 climbTimeByKey[key, default: 0] += duration
             }
@@ -129,8 +129,12 @@ enum InsightsCalculator {
         guard !bucketStarts.isEmpty else { return [] }
 
         var loadByKey: [Date: Int] = [:]
+        var rockByKey: [Date: Int] = [:]
+        var gymByKey: [Date: Int] = [:]
         for key in bucketStarts {
             loadByKey[key] = 0
+            rockByKey[key] = 0
+            gymByKey[key] = 0
         }
 
         for workout in inWindow {
@@ -144,10 +148,21 @@ enum InsightsCalculator {
                 loadByKey[key] != nil
             else { continue }
             loadByKey[key, default: 0] += load
+            switch workout.sessionOrigin {
+            case .rock:
+                rockByKey[key, default: 0] += load
+            case .gym:
+                gymByKey[key, default: 0] += load
+            }
         }
 
         return bucketStarts.map { start in
-            LoadBucket(date: start, totalLoad: loadByKey[start] ?? 0)
+            LoadBucket(
+                date: start,
+                totalLoad: loadByKey[start] ?? 0,
+                rockLoad: rockByKey[start] ?? 0,
+                gymLoad: gymByKey[start] ?? 0
+            )
         }
     }
 

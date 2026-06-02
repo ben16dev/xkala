@@ -6,6 +6,10 @@ struct LoadBucket: Equatable, Identifiable {
     let date: Date
     /// Suma de `sessionLoad` en el bucket.
     let totalLoad: Int
+    /// Carga de sesiones de roca (`.climbing`) en el bucket.
+    let rockLoad: Int
+    /// Carga de sesiones de rocódromo/entrenamiento (`.training`) en el bucket.
+    let gymLoad: Int
 
     var id: TimeInterval { date.timeIntervalSinceReferenceDate }
 }

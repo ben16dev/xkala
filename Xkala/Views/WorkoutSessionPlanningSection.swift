@@ -5,6 +5,7 @@ import SwiftData
 struct WorkoutSessionPlanningSection: View {
     @Environment(\.modelContext) private var context
     @Bindable var workout: WorkoutDay
+    var showsTrainingObjective: Bool = true
 
     @State private var suggestedMethod: TrainingMethod?
     @State private var showSuggestion = true
@@ -19,7 +20,9 @@ struct WorkoutSessionPlanningSection: View {
                 value: optionalIntBinding(\.rpe)
             )
 
-            trainingMethodPicker
+            if showsTrainingObjective {
+                trainingMethodPicker
+            }
 
             optionalScaleRow(
                 title: "Fatiga percibida",
@@ -55,10 +58,13 @@ struct WorkoutSessionPlanningSection: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .onAppear {
             workout.normalizePlanningScalars()
-            refreshSuggestion()
+            if showsTrainingObjective {
+                refreshSuggestion()
+            }
             save()
         }
         .onChange(of: workout.entries.count) { _, _ in
+            guard showsTrainingObjective else { return }
             refreshSuggestion()
         }
         .onChange(of: workout.trainingMethodRawValue) { _, _ in

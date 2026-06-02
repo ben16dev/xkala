@@ -114,6 +114,23 @@ final class StatsCalculatorTests: XCTestCase {
         XCTAssertEqual(climbing?.blocksSuccess, 1)
         XCTAssertEqual(climbing?.traversesTotal, 2)
         XCTAssertEqual(climbing?.traversesSuccess, 1)
+        XCTAssertEqual(climbing?.blockSuccessRateText, "33%")
+        XCTAssertEqual(climbing?.traverseSuccessRateText, "50%")
+    }
+
+    func test_climbingStats_successRates_nilWhenNoEntriesOfKind() {
+        let blockOnly = makeEntry(
+            exercise: makeExercise(name: "Bloque", category: "Climb"),
+            isDone: true,
+            climbKind: "block",
+            climbSuccess: true
+        )
+        let climbing = StatsCalculator.climbingStats(from: [
+            WorkoutDay(date: day, entries: [blockOnly])
+        ])
+
+        XCTAssertEqual(climbing?.blockSuccessRateText, "100%")
+        XCTAssertNil(climbing?.traverseSuccessRateText)
     }
 
     func test_climbingStats_returnsNilWhenNoBlocksOrTraverses() {

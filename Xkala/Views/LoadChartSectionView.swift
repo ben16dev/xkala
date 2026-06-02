@@ -13,6 +13,8 @@ struct LoadChartSectionView: View {
         let chronologicalIndex: Int
         let axisLabel: String
         let totalLoad: Int
+        let rockLoad: Int
+        let gymLoad: Int
     }
 
     private var pointsOrdered: [LoadChartPoint] {
@@ -27,9 +29,15 @@ struct LoadChartSectionView: View {
                         intervalStart: bucket.date,
                         range: range
                     ),
-                    totalLoad: bucket.totalLoad
+                    totalLoad: bucket.totalLoad,
+                    rockLoad: bucket.rockLoad,
+                    gymLoad: bucket.gymLoad
                 )
             }
+    }
+
+    private var showsOriginLegend: Bool {
+        buckets.contains { $0.rockLoad > 0 } && buckets.contains { $0.gymLoad > 0 }
     }
 
     var body: some View {
@@ -40,6 +48,10 @@ struct LoadChartSectionView: View {
                 Text("Carga acumulada (duración × RPE)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            }
+
+            if showsOriginLegend {
+                SessionOriginChartLegend(origins: [.gym, .rock])
             }
 
             loadChart
@@ -56,16 +68,31 @@ struct LoadChartSectionView: View {
         let maxLoad = ordered.map(\.totalLoad).max() ?? 0
         let yTicks = InsightsChartAxisFormatting.sessionAxisTickValues(maxCount: maxLoad)
         let yMax = Double(yTicks.last ?? 1)
-        let loadColor = XkalaTheme.mint
 
         return Chart {
             ForEach(ordered) { point in
-                BarMark(
-                    x: .value("Periodo", point.chronologicalIndex),
-                    y: .value("Carga", point.totalLoad)
-                )
-                .foregroundStyle(loadColor.opacity(0.92))
-                .cornerRadius(4)
+                let gymEnd = Double(point.gymLoad)
+                let totalEnd = Double(point.totalLoad)
+
+                if point.gymLoad > 0 {
+                    BarMark(
+                        x: .value("Periodo", point.chronologicalIndex),
+                        yStart: .value("Carga", 0),
+                        yEnd: .value("Carga", gymEnd)
+                    )
+                    .foregroundStyle(SessionOrigin.gym.chartColor.opacity(0.92))
+                    .cornerRadius(point.rockLoad > 0 ? 0 : 4)
+                }
+
+                if point.rockLoad > 0 {
+                    BarMark(
+                        x: .value("Periodo", point.chronologicalIndex),
+                        yStart: .value("Carga", gymEnd),
+                        yEnd: .value("Carga", totalEnd)
+                    )
+                    .foregroundStyle(SessionOrigin.rock.chartColor.opacity(0.92))
+                    .cornerRadius(4)
+                }
             }
         }
         .chartXScale(domain: xDomain)

@@ -4,8 +4,10 @@ import UIKit
 
 struct ContentView: View {
     @Environment(\.modelContext) private var context
+    @Environment(\.scenePhase) private var scenePhase
     @Query(sort: \WorkoutDay.date, order: .reverse) private var workouts: [WorkoutDay]
 
+    @State private var moodRefreshDate = Date()
     @State private var selectedDate = Date()
     @State private var visibleMonth = Date()
     @State private var selectedWorkout: WorkoutDay?
@@ -47,6 +49,29 @@ struct ContentView: View {
                     .padding(.bottom, 18)
             }
         }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active {
+                moodRefreshDate = Date()
+            }
+        }
+        .onChange(of: workoutMoodInvalidationToken) { _, _ in
+            moodRefreshDate = Date()
+        }
+    }
+
+    /// Cambios en sesiones (p. ej. `durationMinutes` manual) deben refrescar el avatar sin salir de la app.
+    private var workoutMoodInvalidationToken: String {
+        workouts.map {
+            "\($0.id)|\($0.durationMinutes ?? -1)|\($0.endedAt?.timeIntervalSince1970 ?? -1)"
+        }.joined(separator: ";")
+    }
+
+    // MARK: - Avatar mood
+
+    /// `moodRefreshDate` solo invalida la vista (p. ej. al volver de background); el cálculo usa `Date()` real.
+    private var avatarMood: AvatarMood {
+        let _ = moodRefreshDate
+        return AvatarMoodCalculator.mood(for: workouts)
     }
 
     // MARK: - Header
@@ -56,7 +81,7 @@ struct ContentView: View {
             NavigationLink {
                 ProfileView()
             } label: {
-                AvatarView(size: 84, mood: AvatarMoodCalculator.mood(for: workouts))
+                AvatarView(size: 84, mood: avatarMood)
                     .padding(6)
                     .background(
                         Circle()

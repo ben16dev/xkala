@@ -79,15 +79,21 @@ private struct ClimbingStatsSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Escalada")
+            Text("Bloques y Travesías")
                 .font(.headline)
                 .foregroundStyle(.primary)
 
             VStack(alignment: .leading, spacing: 12) {
                 ClimbingMetricRow(title: "Bloques realizados", value: "\(snapshot.blocksTotal)")
                 ClimbingMetricRow(title: "Bloques con éxito", value: "\(snapshot.blocksSuccess)")
+                if let blockRate = snapshot.blockSuccessRateText {
+                    ClimbingMetricRow(title: "Tasa éxito bloques", value: blockRate)
+                }
                 ClimbingMetricRow(title: "Travesías realizadas", value: "\(snapshot.traversesTotal)")
                 ClimbingMetricRow(title: "Travesías con éxito", value: "\(snapshot.traversesSuccess)")
+                if let traverseRate = snapshot.traverseSuccessRateText {
+                    ClimbingMetricRow(title: "Tasa éxito travesías", value: traverseRate)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .xkalaCard()

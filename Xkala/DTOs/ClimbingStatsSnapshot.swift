@@ -10,4 +10,20 @@ struct ClimbingStatsSnapshot: Equatable {
     var isEmpty: Bool {
         blocksTotal == 0 && traversesTotal == 0
     }
+
+    /// Porcentaje entero de bloques con `climbSuccess == true`; `nil` si no hay bloques.
+    var blockSuccessRateText: String? {
+        successRateText(success: blocksSuccess, total: blocksTotal)
+    }
+
+    /// Porcentaje entero de travesías con `climbSuccess == true`; `nil` si no hay travesías.
+    var traverseSuccessRateText: String? {
+        successRateText(success: traversesSuccess, total: traversesTotal)
+    }
+
+    private func successRateText(success: Int, total: Int) -> String? {
+        guard total > 0 else { return nil }
+        let percent = Int((Double(success) / Double(total) * 100).rounded())
+        return "\(percent)%"
+    }
 }

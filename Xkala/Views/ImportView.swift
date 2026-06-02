@@ -433,6 +433,7 @@ struct ImportView: View {
         SetRecord.self,
         UserProfile.self,
         ClimbingSessionData.self,
+        ClimbingRouteRecord.self,
     ])
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
     let container = try! ModelContainer(for: schema, configurations: [config])

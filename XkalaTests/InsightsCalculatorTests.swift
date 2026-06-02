@@ -121,6 +121,12 @@ final class InsightsCalculatorTests: XCTestCase {
         XCTAssertEqual(today?.climbingSessions, 1)
         XCTAssertEqual(today?.trainingTypeTimeSeconds, 1000, accuracy: 0.01)
         XCTAssertEqual(today?.climbingTypeTimeSeconds, 1000, accuracy: 0.01)
+        XCTAssertEqual(today?.sessionCount, (today?.trainingSessions ?? 0) + (today?.climbingSessions ?? 0))
+        XCTAssertEqual(
+            today?.trainingTimeSeconds ?? 0,
+            (today?.trainingTypeTimeSeconds ?? 0) + (today?.climbingTypeTimeSeconds ?? 0),
+            accuracy: 0.01
+        )
     }
 
     func test_oneMonth_groupsIntoMondayWeeksWithRealRangeLabels() {
@@ -406,6 +412,35 @@ final class InsightsCalculatorTests: XCTestCase {
         }
         XCTAssertEqual(buckets.count, 5)
         XCTAssertTrue(calendar.isDate(buckets.last!.date, inSameDayAs: currentMonday))
+    }
+
+    func test_loadBuckets_splitsLoadBySessionOrigin() {
+        let e = Exercise(name: "T", category: "C", mode: "reps", loadAllowed: false)
+        let entry = WorkoutEntry(exercise: e, isDone: true, sets: [])
+        let day0 = calendar.startOfDay(for: refNow)
+
+        let climbing = WorkoutDay(date: day0, entries: [entry])
+        climbing.sessionType = WorkoutDay.SessionType.climbing.rawValue
+        climbing.durationMinutes = 20
+        climbing.rpe = 5
+
+        let training = WorkoutDay(date: day0, entries: [entry])
+        training.sessionType = WorkoutDay.SessionType.training.rawValue
+        training.durationMinutes = 10
+        training.rpe = 6
+
+        let buckets = InsightsCalculator.loadBuckets(
+            from: [climbing, training],
+            range: .sevenDays,
+            now: refNow,
+            calendar: calendar
+        )
+
+        let today = buckets.last
+        XCTAssertEqual(today?.totalLoad, 160)
+        XCTAssertEqual(today?.rockLoad, 100)
+        XCTAssertEqual(today?.gymLoad, 60)
+        XCTAssertEqual((today?.rockLoad ?? 0) + (today?.gymLoad ?? 0), today?.totalLoad)
     }
 
     func test_loadBuckets_oneMonth_groupsByMondayWeeks() {

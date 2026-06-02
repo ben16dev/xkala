@@ -55,7 +55,6 @@ struct InsightsView: View {
 private enum InsightsMetric: String, CaseIterable, Identifiable {
     case time = "Tiempo"
     case sessions = "Sesiones"
-    case venue = "Tipo"
 
     var id: String { rawValue }
 }
@@ -147,12 +146,26 @@ private struct InsightsChartCard: View {
         }
     }
 
+    /// Orígenes con datos para la métrica activa (solo los presentes).
+    private var originsForMetric: [SessionOrigin] {
+        switch metric {
+        case .time:
+            return SessionOrigin.originsPresent(in: bucketsOrdered) { bucket, origin in
+                bucket.timeSeconds(for: origin) / 60
+            }
+        case .sessions:
+            return SessionOrigin.originsPresent(in: bucketsOrdered) { bucket, origin in
+                Double(bucket.sessionCount(for: origin))
+            }
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             header
 
-            if metric == .venue {
-                venueLegend
+            if originsForMetric.count > 1 {
+                SessionOriginChartLegend(origins: originsForMetric)
             }
 
             chartCore
@@ -167,11 +180,9 @@ private struct InsightsChartCard: View {
     private var chartCore: some View {
         switch metric {
         case .time:
-            timeOnlyChart()
+            timeChart()
         case .sessions:
-            sessionsOnlyChart()
-        case .venue:
-            venueStackedChart()
+            sessionsChart()
         }
     }
 
@@ -190,7 +201,6 @@ private struct InsightsChartCard: View {
         switch metric {
         case .time: return "Tiempo entrenado"
         case .sessions: return "Sesiones"
-        case .venue: return "Tipo de sesión"
         }
     }
 
@@ -200,60 +210,42 @@ private struct InsightsChartCard: View {
             return "Cronómetro por periodo (sesiones finalizadas)."
         case .sessions:
             return "Entrenos con inicio y fin registrados."
-        case .venue:
-            return "Sesiones por tipo (rocódromo y roca), mismos periodos y filtro de cronómetro que arriba."
         }
     }
 
-    private var venueLegend: some View {
-        HStack(spacing: 16) {
-            HStack(spacing: 6) {
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(XkalaTheme.sessionTraining)
-                    .frame(width: 12, height: 12)
-                Text("Rocódromo")
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(.secondary)
-            }
-            HStack(spacing: 6) {
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(XkalaTheme.sessionClimbing)
-                    .frame(width: 12, height: 12)
-                Text("Roca")
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    private func timeOnlyChart() -> some View {
+    private func timeChart() -> some View {
         let ordered = bucketsOrdered
+        let origins = originsForMetric
         let xDomain = InsightsChartAxisFormatting.chartXDomain(bucketCount: ordered.count, range: range)
-        let yTicks = InsightsChartAxisFormatting.timeAxisTickMinutes(
-            maxDataMinutes: ordered.map { $0.trainingTimeSeconds / 60 }.max() ?? 0
-        )
+        let maxDataMinutes = ordered.map { bucket in
+            origins.map { bucket.timeSeconds(for: $0) / 60 }.max() ?? 0
+        }.max() ?? 0
+        let yTicks = InsightsChartAxisFormatting.timeAxisTickMinutes(maxDataMinutes: maxDataMinutes)
         let yMax = yTicks.last ?? 30
         let interp = InsightsChartAxisFormatting.lineInterpolation
         let lw = InsightsChartAxisFormatting.lineWidth
         let ps = InsightsChartAxisFormatting.pointSize
-        let timeColor = InsightsChartAxisFormatting.timeLineColor
 
         return Chart {
-            ForEach(ordered, id: \.id) { bucket in
-                LineMark(
-                    x: .value("Periodo", bucket.chronologicalIndex),
-                    y: .value("Minutos", bucket.trainingTimeSeconds / 60)
-                )
-                .interpolationMethod(interp)
-                .foregroundStyle(timeColor.opacity(0.95))
-                .lineStyle(StrokeStyle(lineWidth: lw, lineCap: .round, lineJoin: .round))
+            ForEach(origins, id: \.rawValue) { origin in
+                ForEach(ordered, id: \.id) { bucket in
+                    let minutes = bucket.timeSeconds(for: origin) / 60
+                    LineMark(
+                        x: .value("Periodo", bucket.chronologicalIndex),
+                        y: .value("Minutos", minutes),
+                        series: .value("Origen", origin.displayName)
+                    )
+                    .interpolationMethod(interp)
+                    .foregroundStyle(origin.chartColor.opacity(0.94))
+                    .lineStyle(StrokeStyle(lineWidth: lw, lineCap: .round, lineJoin: .round))
 
-                PointMark(
-                    x: .value("Periodo", bucket.chronologicalIndex),
-                    y: .value("Minutos", bucket.trainingTimeSeconds / 60)
-                )
-                .foregroundStyle(timeColor)
-                .symbolSize(ps)
+                    PointMark(
+                        x: .value("Periodo", bucket.chronologicalIndex),
+                        y: .value("Minutos", minutes)
+                    )
+                    .foregroundStyle(origin.chartColor)
+                    .symbolSize(ps)
+                }
             }
         }
         .chartXScale(domain: xDomain)
@@ -276,34 +268,42 @@ private struct InsightsChartCard: View {
                 .foregroundStyle(InsightsChartAxisFormatting.timeAxisLabelColor)
             }
         }
+        .chartLegend(.hidden)
     }
 
-    private func sessionsOnlyChart() -> some View {
+    private func sessionsChart() -> some View {
         let ordered = bucketsOrdered
+        let origins = originsForMetric
         let xDomain = InsightsChartAxisFormatting.chartXDomain(bucketCount: ordered.count, range: range)
-        let maxSessions = ordered.map(\.sessionCount).max() ?? 0
-        let yTicks = InsightsChartAxisFormatting.sessionAxisTickValues(maxCount: maxSessions)
+        let maxSessions = ordered.map { bucket in
+            origins.map { Double(bucket.sessionCount(for: $0)) }.max() ?? 0
+        }.max() ?? 0
+        let yTicks = InsightsChartAxisFormatting.sessionAxisTickValues(maxCount: Int(maxSessions))
         let yMax = Double(yTicks.last ?? 1)
         let interp = InsightsChartAxisFormatting.lineInterpolation
         let lw = InsightsChartAxisFormatting.lineWidth
         let ps = InsightsChartAxisFormatting.pointSize
 
         return Chart {
-            ForEach(ordered, id: \.id) { bucket in
-                LineMark(
-                    x: .value("Periodo", bucket.chronologicalIndex),
-                    y: .value("Sesiones", bucket.sessionCount)
-                )
-                .interpolationMethod(interp)
-                .foregroundStyle(XkalaTheme.chartSessions.opacity(0.96))
-                .lineStyle(StrokeStyle(lineWidth: lw, lineCap: .round, lineJoin: .round))
+            ForEach(origins, id: \.rawValue) { origin in
+                ForEach(ordered, id: \.id) { bucket in
+                    let count = bucket.sessionCount(for: origin)
+                    LineMark(
+                        x: .value("Periodo", bucket.chronologicalIndex),
+                        y: .value("Sesiones", count),
+                        series: .value("Origen", origin.displayName)
+                    )
+                    .interpolationMethod(interp)
+                    .foregroundStyle(origin.chartColor.opacity(0.96))
+                    .lineStyle(StrokeStyle(lineWidth: lw, lineCap: .round, lineJoin: .round))
 
-                PointMark(
-                    x: .value("Periodo", bucket.chronologicalIndex),
-                    y: .value("Sesiones", bucket.sessionCount)
-                )
-                .foregroundStyle(XkalaTheme.chartSessions)
-                .symbolSize(ps)
+                    PointMark(
+                        x: .value("Periodo", bucket.chronologicalIndex),
+                        y: .value("Sesiones", count)
+                    )
+                    .foregroundStyle(origin.chartColor)
+                    .symbolSize(ps)
+                }
             }
         }
         .chartXScale(domain: xDomain)
@@ -324,75 +324,6 @@ private struct InsightsChartCard: View {
                     }
                 }
                 .foregroundStyle(InsightsChartAxisFormatting.timeAxisLabelColor.opacity(0.85))
-            }
-        }
-    }
-
-    /// Dos líneas: rocódromo (turquesa) y roca (amarillo); misma ventana que tiempo/sesiones.
-    private func venueStackedChart() -> some View {
-        let ordered = bucketsOrdered
-        let xDomain = InsightsChartAxisFormatting.chartXDomain(bucketCount: ordered.count, range: range)
-        let maxVenue = ordered.map { max($0.trainingSessions, $0.climbingSessions) }.max() ?? 0
-        let yTicks = InsightsChartAxisFormatting.sessionAxisTickValues(maxCount: maxVenue)
-        let yMax = Double(yTicks.last ?? 1)
-        let interp = InsightsChartAxisFormatting.lineInterpolation
-        let lw = InsightsChartAxisFormatting.lineWidth
-        let ps = InsightsChartAxisFormatting.pointSize
-
-        return Chart {
-            ForEach(ordered, id: \.id) { bucket in
-                LineMark(
-                    x: .value("Periodo", bucket.chronologicalIndex),
-                    y: .value("Sesiones", bucket.trainingSessions),
-                    series: .value("Tipo", "Rocódromo")
-                )
-                .interpolationMethod(interp)
-                .foregroundStyle(XkalaTheme.sessionTraining.opacity(0.94))
-                .lineStyle(StrokeStyle(lineWidth: lw, lineCap: .round, lineJoin: .round))
-
-                PointMark(
-                    x: .value("Periodo", bucket.chronologicalIndex),
-                    y: .value("Sesiones", bucket.trainingSessions)
-                )
-                .foregroundStyle(XkalaTheme.sessionTraining)
-                .symbolSize(ps)
-            }
-            ForEach(ordered, id: \.id) { bucket in
-                LineMark(
-                    x: .value("Periodo", bucket.chronologicalIndex),
-                    y: .value("Sesiones", bucket.climbingSessions),
-                    series: .value("Tipo", "Roca")
-                )
-                .interpolationMethod(interp)
-                .foregroundStyle(XkalaTheme.sessionClimbing.opacity(0.94))
-                .lineStyle(StrokeStyle(lineWidth: lw, lineCap: .round, lineJoin: .round))
-
-                PointMark(
-                    x: .value("Periodo", bucket.chronologicalIndex),
-                    y: .value("Sesiones", bucket.climbingSessions)
-                )
-                .foregroundStyle(XkalaTheme.sessionClimbing)
-                .symbolSize(ps)
-            }
-        }
-        .chartXScale(domain: xDomain)
-        .chartYScale(domain: 0...yMax)
-        .chartPlotStyle { plotArea in
-            plotArea.padding(InsightsChartAxisFormatting.chartPlotPadding(for: range))
-        }
-        .chartXAxis(.hidden)
-        .insightsChartAxisOverlay(orderedBuckets: ordered, range: range)
-        .chartYAxis {
-            AxisMarks(position: .leading, values: yTicks.map(Double.init)) { value in
-                AxisGridLine(stroke: StrokeStyle(lineWidth: InsightsChartAxisFormatting.horizontalGuideLineWidth))
-                    .foregroundStyle(InsightsChartAxisFormatting.horizontalGuideColor)
-                AxisValueLabel {
-                    if let n = value.as(Double.self) {
-                        Text(String(Int(n)))
-                            .font(.caption2.monospacedDigit().weight(.medium))
-                    }
-                }
-                .foregroundStyle(InsightsChartAxisFormatting.timeAxisLabelColor)
             }
         }
         .chartLegend(.hidden)
