@@ -59,31 +59,19 @@ Exercise
 
 ## Estado del proyecto
 
-Versión actual: v0.1.0
-
 Proyecto personal en desarrollo activo.
 
-Actualmente utilizado y validado en dispositivo real.
+Xkala se encuentra actualmente en fase de beta privada mediante TestFlight.
+
+La app ya se utiliza y valida en dispositivo real, con soporte de exportación/importación de datos para preservar el histórico durante la evolución del proyecto.
 
 ## Testing en iPhone
 
-Actualmente Xkala no está distribuida mediante TestFlight.
+Xkala se distribuye actualmente de forma privada mediante TestFlight a un grupo reducido de testers.
 
-Para ejecutarla es necesario:
+Para probarla es necesario recibir una invitación del desarrollador e instalar la app TestFlight en el iPhone.
 
-- Mac
-- Xcode
-- iPhone
-- Apple ID
-
-Pasos:
-
-1. Clonar el repositorio
-2. Abrir el proyecto en Xcode
-3. Seleccionar tu Apple ID en Signing & Capabilities
-4. Ejecutar la app en tu dispositivo
-
-Nota: con una cuenta gratuita de Apple las builds expiran cada 7 días.
+También puede ejecutarse localmente desde Xcode clonando el repositorio, aunque esta vía está pensada solo para revisión técnica o desarrollo.
 
 ## Feedback
 
@@ -114,4 +102,11 @@ GitHub: @ben16dev
 
 ## Feedback
 
-Si eres escalador y pruebas la app, cualquier sugerencia o issue es bienvenida.
+Estoy buscando escaladores que quieran probar la app y aportar feedback sobre:
+
+- experiencia de uso
+- métricas útiles
+- mejoras de producto
+- funcionalidades que echan de menos
+
+Las sugerencias e issues son bienvenidos.

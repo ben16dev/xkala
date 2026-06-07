@@ -123,20 +123,20 @@ struct ContentView: View {
                     .accessibilityLabel("Progreso")
 
                     NavigationLink {
-                        ImportView()
+                        BackupView()
                     } label: {
                         XkalaToolbarIconButton(systemImage: "square.and.arrow.down")
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("Importar CSV")
+                    .accessibilityLabel("Importar backup")
 
                     Button {
-                        exportJSONForSharing()
+                        exportBackupForSharing()
                     } label: {
                         XkalaToolbarIconButton(systemImage: "square.and.arrow.up")
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("Exportar JSON")
+                    .accessibilityLabel("Exportar backup")
                 }
             }
         }
@@ -359,9 +359,9 @@ struct ContentView: View {
         try? context.save()
     }
 
-    private func exportJSONForSharing() {
+    private func exportBackupForSharing() {
         do {
-            exportShareURL = try ExportService.exportTemporaryJSONFile(context: context)
+            exportShareURL = try XkalaBackupService.exportTemporaryJSONFile(context: context)
             isExportSharePresented = true
         } catch {
             print(error)
