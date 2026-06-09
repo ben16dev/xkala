@@ -75,7 +75,8 @@ private struct UserProfileFormContent: View {
                 }
 
                 InsightsView(isEmbedded: true)
-                    .padding(.bottom, 24)
+
+                privacyNoticeSection
             }
         }
         .scrollClipDisabled(true)
@@ -315,6 +316,25 @@ private struct UserProfileFormContent: View {
 
     private func formatKilogramsForDisplay(_ kg: Double) -> String {
         String(format: "%.1f", kg).replacingOccurrences(of: ".", with: ",")
+    }
+
+    private var privacyNoticeSection: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "lock.shield")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(XkalaTheme.mint.opacity(0.85))
+                .accessibilityHidden(true)
+
+            Text("Todos los datos se almacenan únicamente en tu dispositivo. Xkala no envía información personal a servidores externos.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 16)
+        .padding(.bottom, 32)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Privacidad. Todos los datos se almacenan únicamente en tu dispositivo. Xkala no envía información personal a servidores externos.")
     }
 
     private var birthDateBinding: Binding<Date> {
