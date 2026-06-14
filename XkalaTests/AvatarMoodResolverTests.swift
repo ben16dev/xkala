@@ -173,6 +173,16 @@ final class AvatarMoodResolverTests: XCTestCase {
         XCTAssertEqual(mood(for: [imported, real]), .idle)
     }
 
+    func test_manualDurationOnlyWithoutTimer_countsForMoodStrong() {
+        let today = WorkoutDay(date: now, entries: [makeEntry(exercise: makeExercise(), reps: 8)])
+        today.durationMinutes = 75
+
+        XCTAssertNil(today.startedAt)
+        XCTAssertNil(today.endedAt)
+        XCTAssertTrue(AvatarMoodResolver.isRealCompletedWorkout(today, now: now, calendar: calendar))
+        XCTAssertEqual(mood(for: [today]), .strong)
+    }
+
     func test_sessionWithoutEndedAt_doesNotCount() {
         let open = WorkoutDay(
             date: calendar.date(byAdding: .day, value: -1, to: now)!,

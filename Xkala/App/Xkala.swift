@@ -3,6 +3,8 @@ import SwiftData
 
 @main
 struct Xkala: App {
+    @StateObject private var badgeUnlockCoordinator = BadgeUnlockCoordinator()
+
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             WorkoutDay.self,
@@ -11,7 +13,8 @@ struct Xkala: App {
             SetRecord.self,
             UserProfile.self,
             ClimbingSessionData.self,
-            ClimbingRouteRecord.self
+            ClimbingRouteRecord.self,
+            EarnedBadge.self
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         do {
@@ -28,6 +31,8 @@ struct Xkala: App {
                 XkalaTheme.calendarScreenBackground.ignoresSafeArea()
                 ContentView()
             }
+            .badgeUnlockSheetHost(coordinator: badgeUnlockCoordinator)
+            .environmentObject(badgeUnlockCoordinator)
             .preferredColorScheme(.dark)
             .tint(XkalaTheme.accent)
         }

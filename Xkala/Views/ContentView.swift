@@ -5,6 +5,7 @@ import UIKit
 struct ContentView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.scenePhase) private var scenePhase
+    @EnvironmentObject private var badgeUnlockCoordinator: BadgeUnlockCoordinator
     @Query(sort: \WorkoutDay.date, order: .reverse) private var workouts: [WorkoutDay]
 
     @State private var moodRefreshDate = Date()
@@ -52,17 +53,31 @@ struct ContentView: View {
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
                 moodRefreshDate = Date()
+                evaluateBadges()
             }
         }
         .onChange(of: workoutMoodInvalidationToken) { _, _ in
             moodRefreshDate = Date()
+            evaluateBadges()
         }
+        .onAppear {
+            evaluateBadges()
+        }
+    }
+
+    private func evaluateBadges() {
+        BadgeEvaluationTrigger.evaluateBadgesAfterSessionChange(
+            context: context,
+            coordinator: badgeUnlockCoordinator,
+            currentWorkout: nil,
+            reason: .homeReturn
+        )
     }
 
     /// Cambios en sesiones (p. ej. `durationMinutes` manual) deben refrescar el avatar sin salir de la app.
     private var workoutMoodInvalidationToken: String {
         workouts.map {
-            "\($0.id)|\($0.durationMinutes ?? -1)|\($0.endedAt?.timeIntervalSince1970 ?? -1)"
+            "\($0.id)|\($0.sessionType)|\($0.durationMinutes ?? -1)|\($0.endedAt?.timeIntervalSince1970 ?? -1)"
         }.joined(separator: ";")
     }
 
@@ -71,7 +86,7 @@ struct ContentView: View {
     /// `moodRefreshDate` solo invalida la vista (p. ej. al volver de background); el cálculo usa `Date()` real.
     private var avatarMood: AvatarMood {
         let _ = moodRefreshDate
-        return AvatarMoodCalculator.mood(for: workouts)
+        return AvatarMoodCalculator.mood(for: workouts, now: Date())
     }
 
     // MARK: - Header
@@ -355,6 +370,7 @@ struct ContentView: View {
         if selectedWorkout?.id == workout.id {
             selectedWorkout = nil
         }
+        BadgeAwardService.deleteEarnedBadges(linkedTo: workout, context: context)
         context.delete(workout)
         try? context.save()
     }

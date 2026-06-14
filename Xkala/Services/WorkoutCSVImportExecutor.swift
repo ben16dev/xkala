@@ -24,6 +24,10 @@ enum WorkoutImportBatchNotes {
         guard let match = notes.firstMatch(of: importBatchTagPattern) else { return nil }
         return String(match.1)
     }
+
+    static func containsImportMarker(in notes: String) -> Bool {
+        extractImportBatchId(from: notes) != nil
+    }
 }
 
 /// Persistencia de filas ya validadas (parser + catálogo). No crea `Exercise`.

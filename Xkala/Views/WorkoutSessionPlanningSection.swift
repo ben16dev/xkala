@@ -6,6 +6,7 @@ struct WorkoutSessionPlanningSection: View {
     @Environment(\.modelContext) private var context
     @Bindable var workout: WorkoutDay
     var showsTrainingObjective: Bool = true
+    var onPlanningChanged: ((BadgeEvaluationTrigger.Reason) -> Void)? = nil
 
     @State private var suggestedMethod: TrainingMethod?
     @State private var showSuggestion = true
@@ -81,23 +82,48 @@ struct WorkoutSessionPlanningSection: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Duración")
                     .font(.subheadline)
-                Text("Desde la sesión · minutos")
+                Text("Minutos · manual")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Text(durationDisplayText)
-                .font(.body.weight(.semibold).monospacedDigit())
-                .foregroundStyle(durationDisplayText == "—" ? .secondary : .primary)
-        }
-        .onAppear {
-            workout.syncDurationMinutesFromSessionTimer()
+            SessionScaleControl(
+                value: durationMinutesBinding,
+                range: 5...300,
+                step: 5,
+                placeholder: "—"
+            )
         }
     }
 
-    private var durationDisplayText: String {
-        guard let minutes = workout.effectiveDurationMinutes else { return "—" }
-        return "\(minutes)"
+    private var durationMinutesBinding: Binding<Int?> {
+        Binding(
+            get: { workout.durationMinutes },
+            set: { newValue in
+                if let minutes = newValue, minutes > 0 {
+                    workout.durationMinutes = minutes
+                } else {
+                    workout.durationMinutes = nil
+                }
+                saveAndNotify(.manualDuration)
+            }
+        )
+    }
+
+    private func saveAndNotify(_ reason: BadgeEvaluationTrigger.Reason) {
+        #if DEBUG
+        if reason == .manualDuration {
+            print(
+                "[ManualDuration] workout date=\(workout.date) sessionType=\(workout.sessionType) " +
+                "durationMinutes=\(workout.durationMinutes.map(String.init) ?? "nil") " +
+                "effectiveDurationMinutes=\(workout.effectiveDurationMinutes.map(String.init) ?? "nil") " +
+                "startedAt=\(workout.startedAt.map(String.init(describing:)) ?? "nil") " +
+                "endedAt=\(workout.endedAt.map(String.init(describing:)) ?? "nil")"
+            )
+        }
+        #endif
+        try? context.save()
+        onPlanningChanged?(reason)
     }
 
     // MARK: - Objetivo

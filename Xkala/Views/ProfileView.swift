@@ -53,6 +53,7 @@ private struct UserProfileFormContent: View {
     @Environment(\.scenePhase) private var scenePhase
     @Bindable var profile: UserProfile
     let workouts: [WorkoutDay]
+    @Query(sort: \EarnedBadge.earnedAt, order: .reverse) private var earnedBadges: [EarnedBadge]
     @State private var moodRefreshDate = Date()
     @State private var showBirthDateSheet = false
     @State private var showingAvatarPicker = false
@@ -74,6 +75,8 @@ private struct UserProfileFormContent: View {
                     profileInfoCard
                 }
 
+                badgesSection
+
                 InsightsView(isEmbedded: true)
 
                 privacyNoticeSection
@@ -88,11 +91,20 @@ private struct UserProfileFormContent: View {
                 moodRefreshDate = Date()
             }
         }
+        .onChange(of: workoutMoodInvalidationToken) { _, _ in
+            moodRefreshDate = Date()
+        }
+    }
+
+    private var workoutMoodInvalidationToken: String {
+        workouts.map {
+            "\($0.id)|\($0.sessionType)|\($0.durationMinutes ?? -1)|\($0.endedAt?.timeIntervalSince1970 ?? -1)"
+        }.joined(separator: ";")
     }
 
     private var profileAvatarMood: AvatarMood {
         let _ = moodRefreshDate
-        return AvatarMoodCalculator.mood(for: workouts)
+        return AvatarMoodCalculator.mood(for: workouts, now: Date())
     }
 
     /// Mascota + halos; la tarjeta va debajo con separación para que no tape el personaje.
@@ -237,6 +249,38 @@ private struct UserProfileFormContent: View {
                 accessibilityLabel: "Cambiar género",
                 action: toggleGender
             )
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .xkalaCard()
+        .padding(.horizontal, 16)
+    }
+
+    private var badgesSection: some View {
+        let visibleBadges = earnedBadges.filter { $0.sourceWorkout != nil }
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Chapas")
+                        .font(.headline)
+
+                    Text(visibleBadges.isEmpty
+                         ? "Completa logros para desbloquear chapas."
+                         : "\(visibleBadges.count) chapa\(visibleBadges.count == 1 ? "" : "s") conseguida\(visibleBadges.count == 1 ? "" : "s")")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer(minLength: 0)
+
+                NavigationLink {
+                    BadgesView()
+                } label: {
+                    Text("Ver chapas")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(XkalaTheme.accent)
+                }
+                .buttonStyle(.plain)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .xkalaCard()

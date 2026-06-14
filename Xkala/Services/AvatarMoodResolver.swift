@@ -25,25 +25,29 @@ enum AvatarMoodResolver {
         now: Date = Date(),
         calendar: Calendar = .current
     ) -> AvatarMood {
+        let real = realCompletedWorkouts(from: workouts, now: now, calendar: calendar)
+        let today = sessionsToday(in: real, now: now, calendar: calendar)
+
+        let resolved: AvatarMood
+        if qualifiesForStrong(real: real, now: now, calendar: calendar) {
+            resolved = .strong
+        } else if qualifiesForHappy(real: real, now: now, calendar: calendar) {
+            resolved = .happy
+        } else if qualifiesForTired(real: real, now: now, calendar: calendar) {
+            resolved = .tired
+        } else {
+            resolved = .idle
+        }
+
         #if DEBUG
+        print(
+            "[AvatarMoodDebug] workouts=\(workouts.count) valid=\(real.count) " +
+            "today=\(today.count) mood=\(resolved)"
+        )
         debugLogMoodInput(workouts: workouts, now: now, calendar: calendar)
         #endif
 
-        let real = realCompletedWorkouts(from: workouts, now: now, calendar: calendar)
-
-        if qualifiesForStrong(real: real, now: now, calendar: calendar) {
-            return .strong
-        }
-
-        if qualifiesForHappy(real: real, now: now, calendar: calendar) {
-            return .happy
-        }
-
-        if qualifiesForTired(real: real, now: now, calendar: calendar) {
-            return .tired
-        }
-
-        return .idle
+        return resolved
     }
 
     // MARK: - Mood rules
@@ -168,12 +172,14 @@ enum AvatarMoodResolver {
         now: Date,
         calendar: Calendar
     ) -> Bool {
-        if workout.endedAt == nil {
+        // Cronómetro en curso: no cuenta como sesión completada.
+        if workout.startedAt != nil && workout.endedAt == nil {
             #if DEBUG
-            debugReject(workout, reason: "sin endedAt")
+            debugReject(workout, reason: "timer en curso sin endedAt")
             #endif
             return false
         }
+
         guard let minutes = workout.effectiveDurationMinutes, minutes > 0 else {
             #if DEBUG
             debugReject(workout, reason: "duración inválida (effectiveDurationMinutes=\(workout.effectiveDurationMinutes.map(String.init) ?? "nil"))")
@@ -183,6 +189,13 @@ enum AvatarMoodResolver {
         if isImportedSession(workout) {
             #if DEBUG
             debugReject(workout, reason: "importada [IMPORT:…]")
+            #endif
+            return false
+        }
+
+        if workout.date > now {
+            #if DEBUG
+            debugReject(workout, reason: "date posterior a now")
             #endif
             return false
         }

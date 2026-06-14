@@ -4,7 +4,9 @@ import UIKit
 
 struct ExerciseDetailView: View {
     @Environment(\.modelContext) private var context
+    @EnvironmentObject private var badgeUnlockCoordinator: BadgeUnlockCoordinator
     @Bindable var entry: WorkoutEntry
+    var parentWorkoutHint: WorkoutDay? = nil
 
     @Query(sort: \WorkoutDay.date, order: .reverse) private var workouts: [WorkoutDay]
 
@@ -64,12 +66,16 @@ struct ExerciseDetailView: View {
                         }
                     }
 
-                    if (entry.usesBlockEditor || entry.usesTraverseEditor) && entry.isDone {
+                    if entry.usesBlockEditor || entry.usesTraverseEditor {
                         Toggle(
                             "Completado con éxito",
                             isOn: Binding(
                                 get: { entry.climbSuccess ?? false },
-                                set: { entry.climbSuccess = $0 }
+                                set: { newValue in
+                                    entry.climbSuccess = newValue
+                                    try? context.save()
+                                    evaluateBadgesAfterEntryChange(reason: .climbSuccess)
+                                }
                             )
                         )
                     }
@@ -246,7 +252,29 @@ struct ExerciseDetailView: View {
         }
         .onChange(of: entry.isDone) { _, newValue in
             if newValue { triggerCompletionFeedback() }
+            if newValue && (entry.usesBlockEditor || entry.usesTraverseEditor) {
+                evaluateBadgesAfterEntryChange(reason: .climbSuccess)
+            }
         }
+        .onDisappear {
+            evaluateBadgesAfterEntryChange(reason: .sessionChange)
+        }
+    }
+
+    private var parentWorkout: WorkoutDay? {
+        if let parentWorkoutHint { return parentWorkoutHint }
+        return workouts.first { day in
+            day.entries.contains { $0.persistentModelID == entry.persistentModelID }
+        }
+    }
+
+    private func evaluateBadgesAfterEntryChange(reason: BadgeEvaluationTrigger.Reason) {
+        BadgeEvaluationTrigger.evaluateBadgesAfterSessionChange(
+            context: context,
+            coordinator: badgeUnlockCoordinator,
+            currentWorkout: parentWorkout,
+            reason: reason
+        )
     }
 
     // MARK: - Animación + Haptic

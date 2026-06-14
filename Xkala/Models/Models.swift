@@ -151,11 +151,17 @@ extension WorkoutDay {
     }
 
     /// Aplica duración manual. Si la sesión ya está cerrada, solo actualiza `durationMinutes` y mantiene `endedAt`.
+    /// Sin cronómetro iniciado: solo persiste `durationMinutes` (sin `startedAt`/`endedAt`).
     func applyManualSessionDuration(totalSeconds: Int) {
         guard totalSeconds > 0 else { return }
         let minutes = max(1, Int((Double(totalSeconds) / 60.0).rounded()))
 
         if endedAt != nil {
+            durationMinutes = minutes
+            return
+        }
+
+        if startedAt == nil {
             durationMinutes = minutes
             return
         }
@@ -180,6 +186,31 @@ extension WorkoutDay {
         let seconds = SessionTimeFormatter.seconds(from: self)
         guard seconds > 0 else { return nil }
         return max(1, Int((Double(seconds) / 60.0).rounded()))
+    }
+
+    /// Duración usada por badges: misma prioridad que planificación/stats (`durationMinutes` primero).
+    var badgeEligibleDurationMinutes: Int {
+        if let durationMinutes, durationMinutes > 0 { return durationMinutes }
+        if let effectiveDurationMinutes, effectiveDurationMinutes > 0 { return effectiveDurationMinutes }
+        return 0
+    }
+
+    /// `true` si hay minutos manuales persistidos sin cronómetro iniciado.
+    var hasManualDurationWithoutTimer: Bool {
+        startedAt == nil && (durationMinutes ?? 0) > 0
+    }
+
+    /// Segundos para el cronómetro visual: timer activo/cerrado o duración manual sin timer.
+    var sessionDisplaySeconds: Int {
+        if hasManualDurationWithoutTimer {
+            return (durationMinutes ?? 0) * 60
+        }
+        return SessionTimeFormatter.seconds(from: self)
+    }
+
+    /// Sesión válida para desbloqueo de chapas (sin exigir cronómetro).
+    func isBadgeEligibleWorkout(now: Date = Date()) -> Bool {
+        BadgeAwardService.isBadgeEligibleWorkout(self, now: now)
     }
 
     private static func clampedPlanningScale(_ value: Int?) -> Int? {
@@ -374,8 +405,12 @@ extension WorkoutEntry {
     }
 
     var isTraverse: Bool {
-        if let kind = climbKindNormalized, kind == "traverse" { return true }
-        return exerciseNameNormalized == "travesia"
+        if let kind = climbKindNormalized {
+            if kind == "traverse" || kind == "trave" { return true }
+        }
+        if exerciseNameNormalized == "travesia" { return true }
+        let categoryKey = exercise.exerciseCategoryKeyForSemantics
+        return categoryKey == "travesia" || categoryKey == "travesias"
     }
 
     // MARK: - Editores especiales (semántica centralizada; la vista no heurística inline)
@@ -829,6 +864,26 @@ extension SetRecord {
         case .seconds:
             return SetRecord(reps: nil, seconds: 0, loadKg: nil)
         }
+    }
+}
+
+// MARK: - EarnedBadge
+
+/// Logro desbloqueado una sola vez. No almacena contadores ni estadísticas derivadas.
+@Model
+final class EarnedBadge {
+    /// Identificador estable del badge (`BadgeDefinition.id`).
+    var badgeId: String
+    /// Momento en que se concedió el logro.
+    var earnedAt: Date
+    /// Sesión que originó el desbloqueo.
+    @Relationship(deleteRule: .nullify)
+    var sourceWorkout: WorkoutDay?
+
+    init(badgeId: String, earnedAt: Date = Date(), sourceWorkout: WorkoutDay? = nil) {
+        self.badgeId = badgeId
+        self.earnedAt = earnedAt
+        self.sourceWorkout = sourceWorkout
     }
 }
 

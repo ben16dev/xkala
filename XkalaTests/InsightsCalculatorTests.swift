@@ -83,11 +83,11 @@ final class InsightsCalculatorTests: XCTestCase {
 
         let bucketMinus2 = snap.buckets.first { calendar.isDate($0.intervalStart, inSameDayAs: dMinus2) }
         XCTAssertEqual(bucketMinus2?.sessionCount, 2)
-        XCTAssertEqual(bucketMinus2?.trainingTimeSeconds, 1800 + 3600, accuracy: 0.01)
+        XCTAssertEqual(bucketMinus2?.trainingTimeSeconds ?? 0, 1800 + 3600, accuracy: 0.01)
 
         let bucketMinus1 = snap.buckets.first { calendar.isDate($0.intervalStart, inSameDayAs: dMinus1) }
         XCTAssertEqual(bucketMinus1?.sessionCount, 1)
-        XCTAssertEqual(bucketMinus1?.trainingTimeSeconds, 600, accuracy: 0.01)
+        XCTAssertEqual(bucketMinus1?.trainingTimeSeconds ?? 0, 600, accuracy: 0.01)
     }
 
     func test_sessionTypeSplit_tracksTrainingAndClimbing() {
@@ -119,8 +119,8 @@ final class InsightsCalculatorTests: XCTestCase {
         let today = snap.buckets.first { calendar.isDate($0.intervalStart, inSameDayAs: day0) }
         XCTAssertEqual(today?.trainingSessions, 1)
         XCTAssertEqual(today?.climbingSessions, 1)
-        XCTAssertEqual(today?.trainingTypeTimeSeconds, 1000, accuracy: 0.01)
-        XCTAssertEqual(today?.climbingTypeTimeSeconds, 1000, accuracy: 0.01)
+        XCTAssertEqual(today?.trainingTypeTimeSeconds ?? 0, 1000, accuracy: 0.01)
+        XCTAssertEqual(today?.climbingTypeTimeSeconds ?? 0, 1000, accuracy: 0.01)
         XCTAssertEqual(today?.sessionCount, (today?.trainingSessions ?? 0) + (today?.climbingSessions ?? 0))
         XCTAssertEqual(
             today?.trainingTimeSeconds ?? 0,
