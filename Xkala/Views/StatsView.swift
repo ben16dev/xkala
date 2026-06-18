@@ -51,13 +51,11 @@ struct StatsView: View {
                     )
                 }
 
-                if let method = snapshot.mostFrequentTrainingMethodLast30Days {
-                    StatCard(
-                        title: "Objetivo más frecuente",
-                        value: method.displayName,
-                        systemImage: "target"
-                    )
-                }
+                StatCard(
+                    title: "Último objetivo",
+                    value: snapshot.lastTrainingMethod?.displayName ?? "—",
+                    systemImage: "target"
+                )
 
                 if let climbing = snapshot.climbingStats {
                     ClimbingStatsSection(snapshot: climbing)

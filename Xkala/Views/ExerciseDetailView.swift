@@ -216,24 +216,6 @@ struct ExerciseDetailView: View {
                 ExerciseProgressSectionView(snapshot: progressSnapshot)
             }
 
-            Section("Notas") {
-                TextField(
-                    "Notas del ejercicio…",
-                    text: Binding(
-                        get: { visibleEntryNotes },
-                        set: { newValue in
-                            entry.entryNotes = mergedEntryNotes(withVisibleNotes: newValue)
-                        }
-                    ),
-                    axis: .vertical
-                )
-                    .lineLimit(3...8)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .xkalaCard()
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-            }
         }
         .scrollContentBackground(.hidden)
         .listStyle(.plain)
@@ -663,28 +645,6 @@ struct ExerciseDetailView: View {
             return token
         }
         return "\(notes)\n\(token)"
-    }
-
-    private var visibleEntryNotes: String {
-        guard entry.exercise.isIntermittentHangboardExercise else { return entry.entryNotes }
-        return notesWithoutIntermittentRestToken(entry.entryNotes)
-    }
-
-    private func mergedEntryNotes(withVisibleNotes visibleNotes: String) -> String {
-        guard entry.exercise.isIntermittentHangboardExercise else { return visibleNotes }
-        let rest = intermittentRestSeconds(from: entry.entryNotes)
-        let baseNotes = notesWithoutIntermittentRestToken(visibleNotes)
-
-        guard let rest else { return baseNotes }
-        return writingIntermittentRestSeconds(rest, into: baseNotes)
-    }
-
-    private func notesWithoutIntermittentRestToken(_ notes: String) -> String {
-        let pattern = #"\[intermittent_rest_seconds=\d+\]"#
-        let stripped = notes.replacingOccurrences(of: pattern, with: "", options: .regularExpression)
-        return stripped
-            .replacingOccurrences(of: #"\n{3,}"#, with: "\n\n", options: .regularExpression)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     // MARK: - Keyboard

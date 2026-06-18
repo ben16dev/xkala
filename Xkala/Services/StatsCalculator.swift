@@ -23,11 +23,9 @@ enum StatsCalculator {
         let recentRecords = recentRecords(from: completedEntries, workouts: workouts)
         let sessionLoadLast7Days = totalSessionLoad(workouts: workouts, dayCount: 7, now: now, calendar: calendar)
         let sessionLoadLast30Days = totalSessionLoad(workouts: workouts, dayCount: 30, now: now, calendar: calendar)
-        let mostFrequentMethod = mostFrequentTrainingMethod(
+        let lastTrainingMethod = lastTrainingMethod(
             workouts: workouts,
-            dayCount: 30,
-            now: now,
-            calendar: calendar
+            now: now
         )
         let climbingStats = climbingStats(from: workouts)
 
@@ -40,7 +38,7 @@ enum StatsCalculator {
             recentRecords: recentRecords,
             sessionLoadLast7Days: sessionLoadLast7Days,
             sessionLoadLast30Days: sessionLoadLast30Days,
-            mostFrequentTrainingMethodLast30Days: mostFrequentMethod,
+            lastTrainingMethod: lastTrainingMethod,
             climbingStats: climbingStats
         )
     }
@@ -91,30 +89,20 @@ enum StatsCalculator {
         return loads.reduce(0, +)
     }
 
-    static func mostFrequentTrainingMethod(
+    static func lastTrainingMethod(
         workouts: [WorkoutDay],
-        dayCount: Int,
-        now: Date = Date(),
-        calendar: Calendar = .current
+        now: Date = Date()
     ) -> TrainingMethod? {
-        guard dayCount > 0,
-              let windowStart = calendar.date(
-                byAdding: .day,
-                value: -(dayCount - 1),
-                to: calendar.startOfDay(for: now)
-              )
-        else { return nil }
-
-        var counts: [TrainingMethod: Int] = [:]
-        for workout in workouts where workout.date >= windowStart && workout.date <= now {
-            guard let method = workout.trainingMethod else { continue }
-            counts[method, default: 0] += 1
-        }
-
-        guard let maxCount = counts.values.max(), maxCount > 0 else { return nil }
-
-        let top = counts.filter { $0.value == maxCount }.map(\.key).sorted { $0.displayName < $1.displayName }
-        return top.count == 1 ? top.first : nil
+        workouts
+            .filter { workout in
+                guard workout.date <= now else { return false }
+                if let endedAt = workout.endedAt, endedAt > now { return false }
+                guard !AvatarMoodResolver.isImportedSession(workout) else { return false }
+                return workout.trainingMethod != nil
+            }
+            .sorted { $0.date > $1.date }
+            .first?
+            .trainingMethod
     }
 
     private static func favoriteCategory(from entries: [WorkoutEntry]) -> String {

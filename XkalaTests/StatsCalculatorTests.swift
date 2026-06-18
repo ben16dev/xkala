@@ -140,4 +140,69 @@ final class StatsCalculatorTests: XCTestCase {
         XCTAssertNil(StatsCalculator.climbingStats(from: workouts))
         XCTAssertNil(StatsCalculator.snapshot(from: workouts, now: day).climbingStats)
     }
+
+    func test_lastTrainingMethod_returnsMostRecentValidSessionWithObjective() {
+        let older = WorkoutDay(date: day, entries: [])
+        older.trainingMethod = .strength
+
+        let newer = WorkoutDay(
+            date: Date(timeIntervalSince1970: 86_400),
+            entries: []
+        )
+        newer.trainingMethod = .recovery
+
+        let method = StatsCalculator.lastTrainingMethod(
+            workouts: [older, newer],
+            now: Date(timeIntervalSince1970: 86_400)
+        )
+
+        XCTAssertEqual(method, .recovery)
+    }
+
+    func test_lastTrainingMethod_ignoresFutureSessions() {
+        let past = WorkoutDay(date: day, entries: [])
+        past.trainingMethod = .strength
+
+        let future = WorkoutDay(
+            date: Date(timeIntervalSince1970: 86_400),
+            entries: []
+        )
+        future.trainingMethod = .boulder
+
+        let method = StatsCalculator.lastTrainingMethod(
+            workouts: [past, future],
+            now: day
+        )
+
+        XCTAssertEqual(method, .strength)
+    }
+
+    func test_lastTrainingMethod_ignoresImportedSessions() {
+        let imported = WorkoutDay(date: day, entries: [])
+        imported.trainingMethod = .boulder
+        imported.notes = WorkoutImportBatchNotes.importBatchMarker(for: "batch-1")
+
+        let real = WorkoutDay(
+            date: Date(timeIntervalSince1970: -86_400),
+            entries: []
+        )
+        real.trainingMethod = .technique
+
+        let method = StatsCalculator.lastTrainingMethod(
+            workouts: [imported, real],
+            now: day
+        )
+
+        XCTAssertEqual(method, .technique)
+    }
+
+    func test_lastTrainingMethod_returnsNilWhenNoObjectiveRegistered() {
+        let withoutObjective = WorkoutDay(date: day, entries: [])
+        let method = StatsCalculator.lastTrainingMethod(workouts: [withoutObjective], now: day)
+        XCTAssertNil(method)
+        XCTAssertEqual(
+            StatsCalculator.snapshot(from: [withoutObjective], now: day).lastTrainingMethod?.displayName ?? "—",
+            "—"
+        )
+    }
 }
