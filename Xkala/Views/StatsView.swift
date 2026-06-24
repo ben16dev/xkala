@@ -6,9 +6,14 @@ struct StatsView: View {
 
     var body: some View {
         let snapshot = StatsCalculator.snapshot(from: workouts)
+        let testStateSnapshot = CurrentTestStateCalculator.snapshot(from: workouts)
 
         ScrollView {
             VStack(spacing: 12) {
+                if testStateSnapshot.hasData {
+                    CurrentTestStateSection(snapshot: testStateSnapshot)
+                }
+                
                 StatCard(
                     title: "Entrenos totales",
                     value: "\(snapshot.totalWorkouts)",
@@ -204,5 +209,48 @@ private struct StatCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .xkalaCard()
+    }
+}
+
+private struct CurrentTestStateSection: View {
+    let snapshot: CurrentTestStateSnapshot
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Estado actual")
+                .font(.headline)
+                .foregroundStyle(.primary)
+            
+            VStack(alignment: .leading, spacing: 12) {
+                ForEach(snapshot.orderedCapacities, id: \.self) { capacity in
+                    if let result = snapshot.resultsByCapacity[capacity] {
+                        TestCapacityRow(
+                            capacity: capacity.displayName,
+                            result: result.resultText
+                        )
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .xkalaCard()
+        }
+    }
+}
+
+private struct TestCapacityRow: View {
+    let capacity: String
+    let result: String
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(capacity)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text(result)
+                .font(.body.weight(.medium))
+                .foregroundStyle(.primary)
+                .multilineTextAlignment(.trailing)
+        }
     }
 }
