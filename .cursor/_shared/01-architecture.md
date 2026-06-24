@@ -64,26 +64,30 @@ Persistencia
 Lógica cálculo
 ↓
 UI
+```
 
 Evitar:
 
-lógica compleja en vistas
-cálculos duplicados
-persistencia dentro de UI
-UI y datos
+- lógica compleja en vistas
+- cálculos duplicados
+- persistencia dentro de UI
+- mezclar UI y datos
 
 Preferencias:
 
-vistas reciben datos derivados cuando tenga sentido
-snapshots / DTOs solo si simplifican
-evitar capas innecesarias
-Estrategia de implementación
+- vistas reciben datos derivados cuando tenga sentido
+- snapshots / DTOs solo si simplifican
+- evitar capas innecesarias
+
+---
+
+## Estrategia de implementación
 
 Prioridad:
 
-Cambio mínimo viable
-Seguridad datos
-Test rápido en iPhone
-Evolución futura sin complejidad extra
+1. Cambio mínimo viable
+2. Seguridad de datos
+3. Test rápido en iPhone
+4. Evolución futura sin complejidad extra
 
 Evitar: refactors grandes, rediseños prematuros, sobreingeniería

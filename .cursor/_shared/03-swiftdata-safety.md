@@ -41,47 +41,53 @@ Debe mantenerse:
 WorkoutDay
  └── WorkoutEntry
       └── SetRecord
+```
 
 Evitar:
 
-Relaciones huérfanas
-Cascadas no deseadas
-Referencias inconsistentes
-Sets inválidos
+- Relaciones huérfanas
+- Cascadas no deseadas
+- Referencias inconsistentes
+
+---
+
+### Sets inválidos
 
 Evitar:
 
-mezclar reps y seconds
-usar loadKg cuando loadAllowed == false
-guardar datos incompatibles con Exercise.mode
-persistir placeholders como datos reales
+- mezclar `reps` y `seconds`
+- usar `loadKg` cuando `loadAllowed == false`
+- guardar datos incompatibles con `Exercise.mode`
+- persistir placeholders como datos reales
 
-Impacto:
+Impacto: métricas incorrectas y progreso ambiguo.
 
-Métricas incorrectas y progreso ambiguo.
+---
 
-Estadísticas
-
-Evitar:
-
-Persistir estadísticas derivadas
-Persistir récords
-Persistir agregados
-Calcular métricas desde datos ambiguos
-
-Regla:
-
-Las métricas deben derivarse del histórico.
-
-Arquitectura
+### Estadísticas
 
 Evitar:
 
-lógica compleja en vistas
-duplicación de cálculos
-capas innecesarias
-refactors grandes sin beneficio claro
-Regla final
+- Persistir estadísticas derivadas
+- Persistir récords
+- Persistir agregados
+- Calcular métricas desde datos ambiguos
 
-Si una solución evita: tocar SwiftData, migrar modelos o
-modificar persistencia, esa solución tiene prioridad.
+Regla: las métricas deben derivarse del histórico.
+
+---
+
+### Arquitectura
+
+Evitar:
+
+- lógica compleja en vistas
+- duplicación de cálculos
+- capas innecesarias
+- refactors grandes sin beneficio claro
+
+---
+
+## Regla final
+
+Si una solución evita tocar SwiftData, migrar modelos o modificar persistencia, esa solución tiene prioridad.

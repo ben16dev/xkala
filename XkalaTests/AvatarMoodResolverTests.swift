@@ -183,15 +183,48 @@ final class AvatarMoodResolverTests: XCTestCase {
         XCTAssertEqual(mood(for: [today]), .strong)
     }
 
-    func test_sessionWithoutEndedAt_doesNotCount() {
+    func test_runningTimerSession_doesNotCountAsRealCompletedWorkout() {
         let open = WorkoutDay(
             date: calendar.date(byAdding: .day, value: -1, to: now)!,
             entries: [makeEntry(exercise: makeExercise(), reps: 10)]
         )
         open.startedAt = open.date
+        // endedAt == nil: cronómetro en curso, no finalizado
         open.durationMinutes = 60
         open.rpe = 8
 
-        XCTAssertEqual(mood(for: [open]), .idle)
+        XCTAssertFalse(AvatarMoodResolver.isRealCompletedWorkout(open, now: now, calendar: calendar))
+        // Sin sesiones válidas, daysSinceLastRealSession == Int.max → qualifiesForTired
+        XCTAssertEqual(mood(for: [open]), .tired)
+    }
+
+    func test_openSessionDoesNotInfluenceMoodCalculation() {
+        let open = WorkoutDay(
+            date: calendar.startOfDay(for: now),
+            entries: [makeEntry(exercise: makeExercise(), reps: 10)]
+        )
+        open.startedAt = open.date
+        // endedAt == nil: sesión todavía en curso
+        open.durationMinutes = 60
+        open.rpe = 8
+
+        let completed = makeRealWorkout(
+            on: -1,
+            durationMinutes: 60,
+            entries: [makeEntry(exercise: makeExercise(name: "Pull-up"), reps: 8)]
+        )
+
+        XCTAssertFalse(AvatarMoodResolver.isRealCompletedWorkout(open, now: now, calendar: calendar))
+        XCTAssertTrue(AvatarMoodResolver.isRealCompletedWorkout(completed, now: now, calendar: calendar))
+
+        let moodWithoutOpen = mood(for: [completed])
+        let moodWithOpen = mood(for: [open, completed])
+
+        // La sesión abierta no altera el mood derivado únicamente de la sesión completada
+        XCTAssertEqual(moodWithOpen, moodWithoutOpen)
+        // Una sola sesión completada ayer (a < 4 días, solo 1 sesión en 7 días) → idle
+        XCTAssertEqual(moodWithOpen, .idle)
+        // La sesión abierta no activa strong por sí sola junto a la completada
+        XCTAssertNotEqual(moodWithOpen, .strong)
     }
 }
