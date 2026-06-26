@@ -43,6 +43,9 @@ struct WorkoutSessionPlanningSection: View {
                     .foregroundStyle(.secondary)
                 TextField("Opcional", text: painNotesBinding, axis: .vertical)
                     .lineLimit(2...4)
+                    .onDisappear {
+                        trimAndSavePainNotes()
+                    }
             }
 
             if let load = workout.sessionLoad {
@@ -248,12 +251,19 @@ struct WorkoutSessionPlanningSection: View {
     private var painNotesBinding: Binding<String> {
         Binding(
             get: { workout.painNotes ?? "" },
-            set: {
-                let trimmed = $0.trimmingCharacters(in: .whitespacesAndNewlines)
-                workout.painNotes = trimmed.isEmpty ? nil : trimmed
+            set: { newValue in
+                workout.painNotes = newValue.isEmpty ? nil : newValue
                 save()
             }
         )
+    }
+    
+    private func trimAndSavePainNotes() {
+        if let notes = workout.painNotes {
+            let trimmed = notes.trimmingCharacters(in: .whitespacesAndNewlines)
+            workout.painNotes = trimmed.isEmpty ? nil : trimmed
+            save()
+        }
     }
 
     private func optionalScaleRow(title: String, subtitle: String, value: Binding<Int?>) -> some View {
