@@ -27,8 +27,8 @@ struct WorkoutDetailView: View {
                     TextField("Nombre de la sesión", text: $workout.name)
 
                     Picker("Tipo", selection: $workout.sessionType) {
-                        Text("Rocódromo").tag("training")
-                        Text("Roca").tag("climbing")
+                        Text("Entrenamiento").tag("training")
+                        Text("Cuerda").tag("climbing")
                     }
                     .pickerStyle(.segmented)
                     .onChange(of: workout.sessionType) { _, _ in
@@ -240,8 +240,8 @@ struct WorkoutDetailView: View {
                 } label: {
                     XkalaActionButton(
                         title: workout.sessionTypeEnum == .climbing
-                            ? "Iniciar sesión de roca"
-                            : "Iniciar sesión de rocódromo",
+                            ? "Iniciar sesión de cuerda"
+                            : "Iniciar sesión de entrenamiento",
                         systemImage: "play.fill"
                     )
                 }
@@ -418,7 +418,7 @@ private struct ClimbingSessionEditorView: View {
     @Bindable var data: ClimbingSessionData
 
     var body: some View {
-        Section("Roca") {
+        Section("Información") {
             VStack(spacing: 12) {
                 TextField("Ubicación", text: $data.location)
                     .onChange(of: data.location) { _, _ in

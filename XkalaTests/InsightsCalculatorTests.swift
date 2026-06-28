@@ -14,7 +14,7 @@ final class InsightsCalculatorTests: XCTestCase {
     /// 2024-06-15 12:00:00 UTC
     private let refNow = Date(timeIntervalSince1970: 1_718_452_800)
 
-    func test_isValidTimedSession_requiresStartedEndedAndOrder() {
+    func test_isValidTimedSession_acceptsClosedTimerOrManualDuration() {
         let e = Exercise(name: "T", category: "C", mode: "reps", loadAllowed: false)
         let entry = WorkoutEntry(exercise: e, isDone: true, sets: [])
         let w1 = WorkoutDay(date: refNow, entries: [entry], startedAt: nil, endedAt: refNow)
@@ -38,6 +38,10 @@ final class InsightsCalculatorTests: XCTestCase {
             endedAt: refNow
         )
         XCTAssertTrue(InsightsCalculator.isValidTimedSession(w4))
+
+        let manual = WorkoutDay(date: refNow, entries: [entry])
+        manual.durationMinutes = 45
+        XCTAssertTrue(InsightsCalculator.isValidTimedSession(manual))
     }
 
     func test_sevenDays_aggregatesSessionsAndTimeByDay() {
@@ -127,6 +131,32 @@ final class InsightsCalculatorTests: XCTestCase {
             (today?.trainingTypeTimeSeconds ?? 0) + (today?.climbingTypeTimeSeconds ?? 0),
             accuracy: 0.01
         )
+    }
+
+    func test_snapshot_includesManualDurationsByTechnicalSessionType() {
+        let e = Exercise(name: "T", category: "C", mode: "reps", loadAllowed: false)
+        let entry = WorkoutEntry(exercise: e, isDone: true, sets: [])
+        let day0 = calendar.startOfDay(for: refNow)
+
+        let training = WorkoutDay(date: day0, entries: [entry], sessionType: "training")
+        training.durationMinutes = 30
+
+        let climbing = WorkoutDay(date: day0, entries: [entry], sessionType: "climbing")
+        climbing.durationMinutes = 45
+
+        let snap = InsightsCalculator.snapshot(
+            from: [training, climbing],
+            range: .sevenDays,
+            now: refNow,
+            calendar: calendar
+        )
+
+        let today = snap.buckets.first { calendar.isDate($0.intervalStart, inSameDayAs: day0) }
+        XCTAssertEqual(today?.trainingSessions, 1)
+        XCTAssertEqual(today?.climbingSessions, 1)
+        XCTAssertEqual(today?.trainingTypeTimeSeconds ?? 0, 30 * 60, accuracy: 0.01)
+        XCTAssertEqual(today?.climbingTypeTimeSeconds ?? 0, 45 * 60, accuracy: 0.01)
+        XCTAssertEqual(today?.trainingTimeSeconds ?? 0, 75 * 60, accuracy: 0.01)
     }
 
     func test_oneMonth_groupsIntoMondayWeeksWithRealRangeLabels() {

@@ -3,16 +3,14 @@ import Foundation
 /// Agregados temporales para insights globales. Solo datos derivados; sin persistencia.
 enum InsightsCalculator {
 
-    /// Sesión válida para métricas de tiempo: timer completo y coherente (misma regla que `StatsCalculator` para tiempo total).
+    /// Sesión válida para métricas de tiempo: timer cerrado coherente o duración manual positiva.
     static func isValidTimedSession(_ workout: WorkoutDay) -> Bool {
-        guard
-            let startedAt = workout.startedAt,
-            let endedAt = workout.endedAt,
-            endedAt > startedAt
-        else {
-            return false
+        if let startedAt = workout.startedAt {
+            guard let endedAt = workout.endedAt, endedAt > startedAt else {
+                return false
+            }
         }
-        return true
+        return durationSeconds(for: workout) > 0
     }
 
     static func snapshot(
@@ -25,8 +23,8 @@ enum InsightsCalculator {
         let timed = workouts.filter { isValidTimedSession($0) }
         let window = timeWindow(for: range, now: now, calendar: cal)
         let inWindow = timed.filter { w in
-            guard let end = w.endedAt else { return false }
-            return end >= window.start && end <= window.end
+            let referenceDate = sessionReferenceDate(for: w)
+            return referenceDate >= window.start && referenceDate <= window.end
         }
 
         let bucketStartsRaw = generateBucketStarts(
@@ -58,9 +56,9 @@ enum InsightsCalculator {
         }
 
         for w in inWindow {
-            guard let endedAt = w.endedAt, let startedAt = w.startedAt else { continue }
+            let referenceDate = sessionReferenceDate(for: w)
             guard let key = bucketKey(
-                for: endedAt,
+                for: referenceDate,
                 range: range,
                 bucketStarts: bucketStarts,
                 calendar: cal
@@ -70,15 +68,15 @@ enum InsightsCalculator {
                 continue
             }
 
-            let duration = endedAt.timeIntervalSince(startedAt)
+            let duration = durationSeconds(for: w)
             timeByKey[key, default: 0] += duration
             countByKey[key, default: 0] += 1
 
-            switch w.sessionOrigin {
-            case .gym:
+            switch w.sessionTypeEnum {
+            case .training:
                 trainByKey[key, default: 0] += 1
                 trainTimeByKey[key, default: 0] += duration
-            case .rock:
+            case .climbing:
                 climbByKey[key, default: 0] += 1
                 climbTimeByKey[key, default: 0] += duration
             }
@@ -148,11 +146,11 @@ enum InsightsCalculator {
                 loadByKey[key] != nil
             else { continue }
             loadByKey[key, default: 0] += load
-            switch workout.sessionOrigin {
-            case .rock:
-                rockByKey[key, default: 0] += load
-            case .gym:
+            switch workout.sessionTypeEnum {
+            case .training:
                 gymByKey[key, default: 0] += load
+            case .climbing:
+                rockByKey[key, default: 0] += load
             }
         }
 
@@ -186,6 +184,25 @@ enum InsightsCalculator {
         var c = calendar
         c.firstWeekday = 2
         return c
+    }
+
+    private static func sessionReferenceDate(for workout: WorkoutDay) -> Date {
+        workout.endedAt ?? workout.date
+    }
+
+    private static func durationSeconds(for workout: WorkoutDay) -> TimeInterval {
+        if let minutes = workout.durationMinutes, minutes > 0 {
+            return TimeInterval(minutes * 60)
+        }
+        if let startedAt = workout.startedAt,
+           let endedAt = workout.endedAt,
+           endedAt > startedAt {
+            return endedAt.timeIntervalSince(startedAt)
+        }
+        if let minutes = workout.effectiveDurationMinutes, minutes > 0 {
+            return TimeInterval(minutes * 60)
+        }
+        return 0
     }
 
     private struct TimeWindow: Equatable {

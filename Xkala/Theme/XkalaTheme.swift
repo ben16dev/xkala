@@ -18,9 +18,9 @@ enum XkalaTheme {
     /// Línea de tiempo en insights (turquesa claro sobre fondo oscuro).
     static let chartTimeLine = Color(hex: "#8FD4C8")
 
-    /// Turquesa: icono de entrenamiento/rocódromo (iconClimbingShoes)
+    /// Turquesa: icono de entrenamiento (iconClimbingShoes)
     static let sessionTraining = Color(hex: "#24FFF8")
-    /// Amarillo: icono de roca/montaña (iconMountain)
+    /// Amarillo: icono de cuerda (iconRope)
     static let sessionClimbing = Color(hex: "#FFFF24")
 
     static let calendarScreenBackground = LinearGradient(

@@ -282,7 +282,7 @@ struct ContentView: View {
             .shadow(color: XkalaTheme.cardSecondaryShadow, radius: 6, x: 0, y: 2)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Crear sesión de rocódromo")
+        .accessibilityLabel("Crear sesión de entrenamiento")
         .onAppear { fabHaptic.prepare() }
     }
 
@@ -335,7 +335,7 @@ struct ContentView: View {
         let trimmed = workout.name.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmed.isEmpty { return trimmed }
         if let derived = workout.categoriesBasedName, !derived.isEmpty { return derived }
-        return workout.sessionTypeEnum == .climbing ? "Sesión de roca" : "Sesión Rocódromo"
+        return workout.sessionTypeEnum == .climbing ? "Sesión de cuerda" : "Sesión de entrenamiento"
     }
 
     private func displayTime(for workout: WorkoutDay) -> String {

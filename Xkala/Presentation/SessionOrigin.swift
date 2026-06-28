@@ -7,8 +7,8 @@ enum SessionOrigin: String, CaseIterable {
 
     var displayName: String {
         switch self {
-        case .gym: "Rocódromo"
-        case .rock: "Roca"
+        case .gym: "Entrenamiento"
+        case .rock: "Cuerda"
         }
     }
 

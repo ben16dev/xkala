@@ -46,12 +46,12 @@ enum XkalaMonthGrid {
     }
 }
 
-// MARK: - Clasificación conservadora rocódromo / roca (solo lectura de datos existentes)
+// MARK: - Clasificación conservadora entrenamiento / cuerda (solo lectura de datos existentes)
 
 private enum CalendarSessionVenueKind {
-    /// Sesión en roca (exterior).
+    /// Sesión de cuerda (exterior).
     case outdoor
-    /// Rocódromo / indoor / no clasificada como roca.
+    /// Entrenamiento / indoor / no clasificada como cuerda.
     case indoor
 }
 
@@ -62,20 +62,20 @@ private enum XkalaCalendarSessionClassifier {
         s.lowercased().folding(options: .diacriticInsensitive, locale: foldingLocale)
     }
 
-    /// Palabras clave de roca; se normalizan igual que el blob (`climbIdentifier` excluido a propósito).
+    /// Palabras clave de cuerda; se normalizan igual que el blob (`climbIdentifier` excluido a propósito).
     private static let outdoorNeedles: [String] = Array(
         Set(
             [
-                "roca", "outdoor", "montana", "montaña", "segovia",
+                "cuerda", "roca", "outdoor", "montana", "montaña", "segovia",
                 "fuertiduena", "fuentidueña", "fuenti", "peñalara", "pedriza",
             ].map { normalizeText($0) }
         )
     )
-    /// Señales explícitas de rocódromo/indoor.
+    /// Señales explícitas de entrenamiento/indoor.
     private static let indoorNeedles: [String] = Array(
         Set(
             [
-                "rocodromo", "rocódromo", "indoor", "gym", "entreno", "training",
+                "rocodromo", "rocódromo", "indoor", "gym", "entreno", "entrenamiento", "training",
             ].map { normalizeText($0) }
         )
     )
@@ -108,10 +108,10 @@ private enum XkalaCalendarSessionClassifier {
     /// Prioriza `sessionType` de la sesión; usa texto solo como fallback para datos legacy.
     private static func workoutSignals(_ workout: WorkoutDay) -> (hasOutdoor: Bool, hasIndoor: Bool) {
         let sessionTypeBlob = normalizeText(workout.sessionType)
-        if sessionTypeBlob.contains("climbing") || sessionTypeBlob.contains("roca") {
+        if sessionTypeBlob.contains("climbing") || sessionTypeBlob.contains("cuerda") || sessionTypeBlob.contains("roca") {
             return (true, false)
         }
-        if sessionTypeBlob.contains("training") || sessionTypeBlob.contains("entreno") {
+        if sessionTypeBlob.contains("training") || sessionTypeBlob.contains("entrenamiento") || sessionTypeBlob.contains("entreno") {
             return (false, true)
         }
         if workout.sessionType == WorkoutDay.SessionType.climbing.rawValue {
@@ -299,10 +299,10 @@ private struct WorkoutCalendarDayCell: View {
         if f.hasOutdoor && f.hasIndoor {
             HStack(spacing: 2) {
                 calendarSessionIcon("iconClimbingShoes", color: XkalaTheme.sessionTraining)
-                calendarSessionIcon("iconMountain", color: XkalaTheme.sessionClimbing)
+                calendarSessionIcon("iconRope", color: XkalaTheme.sessionClimbing)
             }
         } else if f.hasOutdoor {
-            calendarSessionIcon("iconMountain", color: XkalaTheme.sessionClimbing)
+            calendarSessionIcon("iconRope", color: XkalaTheme.sessionClimbing)
         } else if f.hasIndoor {
             calendarSessionIcon("iconClimbingShoes", color: XkalaTheme.sessionTraining)
         }
