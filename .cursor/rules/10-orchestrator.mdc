@@ -1,7 +1,7 @@
 ---
 description: Agente orquestador principal de Xkala
 globs: ["**/*"]
-alwaysApply: true
+alwaysApply: false
 ---
 
 # Xkala — Orquestador

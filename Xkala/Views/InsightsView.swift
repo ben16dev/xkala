@@ -207,7 +207,7 @@ private struct InsightsChartCard: View {
     private var headerSubtitle: String {
         switch metric {
         case .time:
-            return "Cronómetro por periodo (sesiones finalizadas)."
+            return "Duración de todas las sesiones finalizadas por periodo"
         case .sessions:
             return "Entrenos con inicio y fin registrados."
         }

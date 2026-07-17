@@ -30,6 +30,8 @@ La fuente detallada vive en:
 
 Este archivo solo resume el contexto maestro.
 
+Usar los archivos `_shared` como referencia bajo demanda. No repetir su contenido en respuestas salvo que sea necesario para justificar una decisión.
+
 ## Principios no negociables
 
 - Preservar histórico existente

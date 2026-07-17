@@ -1,0 +1,62 @@
+# Xcode / Swift build output
+.build/
+DerivedData/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+
+# Swift Package Manager
+.swiftpm/
+Package.resolved
+
+# Archives and distribution
+*.xcarchive
+*.ipa
+*.dSYM
+*.app
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Git
+.git/
+
+# Cursor / editor noise
+.cursor/index/
+.vscode/
+.idea/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.log
+
+# Generated / backup files
+*.bak
+*.backup
+*.old
+*.orig
+
+# Test and coverage output
+.coverage/
+coverage/
+TestResults/
+*.xcresult
+
+# Dependencies / caches
+Carthage/Build/
+Pods/
+
+# Local environment
+.env
+.env.*
+*.local
+
+# Large media exports or screenshots
+screenshots/
+recordings/
+exports/

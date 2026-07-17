@@ -186,27 +186,33 @@ private struct UserProfileFormContent: View {
     private var profileInfoCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             ProfileEditableRow(
-                title: "Nombre",
                 trailingIcon: "pencil",
                 trailingAccessibilityLabel: "Editar nombre",
                 trailingAction: { focusedField = .name }
             ) {
-                TextField("", text: $profile.name, prompt: Text("Introduce tu nombre"))
-                    .multilineTextAlignment(.leading)
-                    .focused($focusedField, equals: .name)
+                TextField(
+                    "",
+                    text: $profile.name,
+                    prompt: Text("¿Cómo quieres que te llame?").foregroundStyle(.secondary)
+                )
+                .multilineTextAlignment(.leading)
+                .focused($focusedField, equals: .name)
             }
 
             ProfileEditableRow(
-                title: "Altura",
                 trailingIcon: "ruler",
                 trailingAccessibilityLabel: "Editar altura",
                 trailingAction: { focusedField = .height }
             ) {
                 HStack(alignment: .firstTextBaseline, spacing: 2) {
-                    TextField("—", text: heightMetersBinding)
-                        .keyboardType(.decimalPad)
-                        .focused($focusedField, equals: .height)
-                        .fixedSize(horizontal: true, vertical: false)
+                    TextField(
+                        "",
+                        text: heightMetersBinding,
+                        prompt: Text("¿Cuánto mides?").foregroundStyle(.secondary)
+                    )
+                    .keyboardType(.decimalPad)
+                    .focused($focusedField, equals: .height)
+                    .fixedSize(horizontal: profile.heightCm != nil, vertical: false)
                     if profile.heightCm != nil {
                         Text("m")
                             .foregroundStyle(.secondary)
@@ -215,16 +221,19 @@ private struct UserProfileFormContent: View {
             }
 
             ProfileEditableRow(
-                title: "Peso",
                 trailingIcon: "scalemass",
                 trailingAccessibilityLabel: "Editar peso",
                 trailingAction: { focusedField = .weight }
             ) {
                 HStack(alignment: .firstTextBaseline, spacing: 2) {
-                    TextField("—", text: weightKilogramsBinding)
-                        .keyboardType(.decimalPad)
-                        .focused($focusedField, equals: .weight)
-                        .fixedSize(horizontal: true, vertical: false)
+                    TextField(
+                        "",
+                        text: weightKilogramsBinding,
+                        prompt: Text("¿Cuánto pesas?").foregroundStyle(.secondary)
+                    )
+                    .keyboardType(.decimalPad)
+                    .focused($focusedField, equals: .weight)
+                    .fixedSize(horizontal: profile.weightKg != nil, vertical: false)
                     if profile.weightKg != nil {
                         Text("kg")
                             .foregroundStyle(.secondary)
@@ -233,7 +242,6 @@ private struct UserProfileFormContent: View {
             }
 
             ProfileInfoRow(
-                title: "Nacimiento",
                 value: birthDateDisplay,
                 isPlaceholder: profile.birthDate == nil,
                 trailingIcon: "calendar",
@@ -241,18 +249,41 @@ private struct UserProfileFormContent: View {
                 action: { showBirthDateSheet = true }
             )
 
-            ProfileInfoRow(
-                title: nil,
-                value: genderDisplay,
-                isPlaceholder: false,
-                trailingIcon: "figure.climbing",
-                accessibilityLabel: "Cambiar género",
-                action: toggleGender
-            )
+            genderSelectionRow
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .xkalaCard()
         .padding(.horizontal, 16)
+    }
+
+    private var genderSelectionRow: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Picker("Género", selection: genderBinding) {
+                Text("Masculino").tag("escalador")
+                Text("Femenino").tag("escaladora")
+            }
+            .labelsHidden()
+
+            Spacer(minLength: 0)
+
+            Image(systemName: "figure.climbing")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(XkalaTheme.accent)
+                .frame(width: 28, height: 28)
+                .accessibilityHidden(true)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Género")
+    }
+
+    /// Mapea la UI a `escalador`/`escaladora`. Valores legacy (`otro` u otros) → `escalador`.
+    private var genderBinding: Binding<String> {
+        Binding(
+            get: {
+                profile.gender == "escaladora" ? "escaladora" : "escalador"
+            },
+            set: { profile.gender = $0 }
+        )
     }
 
     private var badgesSection: some View {
@@ -289,17 +320,9 @@ private struct UserProfileFormContent: View {
 
     private var birthDateDisplay: String {
         guard let birth = profile.birthDate else {
-            return "Añadir fecha de nacimiento"
+            return "¿Cuándo naciste?"
         }
         return Self.birthDateDisplayFormatter.string(from: birth)
-    }
-
-    private var genderDisplay: String {
-        profile.gender == "escaladora" ? "Escaladora" : "Escalador"
-    }
-
-    private func toggleGender() {
-        profile.gender = profile.gender == "escaladora" ? "escalador" : "escaladora"
     }
 
     private static let birthDateDisplayFormatter: DateFormatter = {
@@ -421,23 +444,19 @@ private struct UserProfileFormContent: View {
 
 // MARK: - Filas de la tarjeta
 
-/// Fila editable: `Label:` a la izquierda + contenido (TextField + unidad) a la derecha.
-/// Acepta opcionalmente un icono trailing tappable, alineado igual que `ProfileInfoRow`.
+/// Fila editable: valor/prompt a la izquierda + icono trailing tappable.
 private struct ProfileEditableRow<Content: View>: View {
-    let title: String
     let trailingIcon: String?
     let trailingAccessibilityLabel: String?
     let trailingAction: (() -> Void)?
     @ViewBuilder let content: () -> Content
 
     init(
-        title: String,
         trailingIcon: String? = nil,
         trailingAccessibilityLabel: String? = nil,
         trailingAction: (() -> Void)? = nil,
         @ViewBuilder content: @escaping () -> Content
     ) {
-        self.title = title
         self.trailingIcon = trailingIcon
         self.trailingAccessibilityLabel = trailingAccessibilityLabel
         self.trailingAction = trailingAction
@@ -446,8 +465,6 @@ private struct ProfileEditableRow<Content: View>: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
-            Text("\(title):")
-                .foregroundStyle(.secondary)
             content()
             Spacer(minLength: 0)
             if let trailingIcon, let trailingAction {
@@ -465,10 +482,8 @@ private struct ProfileEditableRow<Content: View>: View {
     }
 }
 
-/// Fila informativa con valor formateado y un icono trailing tappable.
-/// Si `title` es nil, se muestra solo el valor (ej. "Escalador" / "Escaladora").
+/// Fila informativa: solo el valor (pregunta si vacío) + icono trailing.
 private struct ProfileInfoRow: View {
-    let title: String?
     let value: String
     let isPlaceholder: Bool
     let trailingIcon: String
@@ -477,10 +492,6 @@ private struct ProfileInfoRow: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
-            if let title {
-                Text("\(title):")
-                    .foregroundStyle(.secondary)
-            }
             Text(value)
                 .foregroundStyle(isPlaceholder ? Color.secondary : Color.primary)
             Spacer(minLength: 0)
