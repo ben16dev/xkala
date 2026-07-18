@@ -150,14 +150,20 @@ extension WorkoutDay {
         syncDurationMinutesFromSessionTimer()
     }
 
-    /// Aplica duración manual. Si la sesión ya está cerrada, solo actualiza `durationMinutes` y mantiene `endedAt`.
-    /// Sin cronómetro iniciado: solo persiste `durationMinutes` (sin `startedAt`/`endedAt`).
+    /// Aplica duración manual según el estado del cronómetro:
+    /// - Sin timer: solo `durationMinutes` (sin fechas artificiales).
+    /// - En curso: no modifica fechas ni el tiempo mostrado.
+    /// - Cerrado: conserva `endedAt`, recalcula `startedAt`/`date` y guarda `durationMinutes`.
     func applyManualSessionDuration(totalSeconds: Int) {
         guard totalSeconds > 0 else { return }
         let minutes = max(1, Int((Double(totalSeconds) / 60.0).rounded()))
+        let durationSeconds = TimeInterval(minutes * 60)
 
-        if endedAt != nil {
+        if let ended = endedAt {
             durationMinutes = minutes
+            let newStart = ended.addingTimeInterval(-durationSeconds)
+            startedAt = newStart
+            date = newStart
             return
         }
 
@@ -166,10 +172,7 @@ extension WorkoutDay {
             return
         }
 
-        let base = date
-        startedAt = base
-        endedAt = base.addingTimeInterval(TimeInterval(totalSeconds))
-        syncDurationMinutesFromSessionTimer()
+        // Timer en curso: no tocar fechas ni el display live.
     }
 
     /// Reinicia el cronómetro y borra la duración derivada del timer.

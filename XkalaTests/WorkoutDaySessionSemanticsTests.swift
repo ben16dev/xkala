@@ -102,7 +102,7 @@ final class WorkoutDaySessionSemanticsTests: XCTestCase {
         XCTAssertEqual(workout.durationMinutes, 90)
     }
 
-    func testApplyManualSessionDurationOnClosedSessionPreservesEndedAt() {
+    func testApplyManualSessionDurationOnClosedSessionRecalculatesStartedAtAndDate() {
         let workout = WorkoutDay()
         let start = Date(timeIntervalSince1970: 1_700_000_000)
         let end = start.addingTimeInterval(45 * 60)
@@ -111,10 +111,38 @@ final class WorkoutDaySessionSemanticsTests: XCTestCase {
 
         workout.applyManualSessionDuration(totalSeconds: 75 * 60)
 
+        let expectedStart = end.addingTimeInterval(-75 * 60)
         XCTAssertEqual(workout.endedAt, end)
-        XCTAssertEqual(workout.startedAt, start)
+        XCTAssertEqual(workout.startedAt, expectedStart)
+        XCTAssertEqual(workout.date, expectedStart)
         XCTAssertEqual(workout.durationMinutes, 75)
         XCTAssertEqual(workout.effectiveDurationMinutes, 75)
+        XCTAssertEqual(SessionTimeFormatter.seconds(from: workout), 75 * 60)
+        XCTAssertEqual(workout.sessionDisplaySeconds, 75 * 60)
+    }
+
+    func testApplyManualSessionDurationOnActiveTimerDoesNotChangeDatesOrDisplay() {
+        let workout = WorkoutDay()
+        let start = Date(timeIntervalSince1970: 1_700_000_000)
+        workout.startSessionTimer(at: start)
+        workout.date = start
+        let liveSecondsBefore = SessionTimeFormatter.seconds(
+            from: workout,
+            referenceEnd: start.addingTimeInterval(10 * 60)
+        )
+
+        workout.applyManualSessionDuration(totalSeconds: 75 * 60)
+
+        XCTAssertEqual(workout.startedAt, start)
+        XCTAssertNil(workout.endedAt)
+        XCTAssertEqual(workout.date, start)
+        XCTAssertNil(workout.durationMinutes)
+        let liveSecondsAfter = SessionTimeFormatter.seconds(
+            from: workout,
+            referenceEnd: start.addingTimeInterval(10 * 60)
+        )
+        XCTAssertEqual(liveSecondsAfter, liveSecondsBefore)
+        XCTAssertEqual(liveSecondsAfter, 10 * 60)
     }
 
     func testSyncDurationDoesNotOverwriteManualMinutesOnClosedSession() {

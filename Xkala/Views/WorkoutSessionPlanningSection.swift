@@ -104,7 +104,7 @@ struct WorkoutSessionPlanningSection: View {
             get: { workout.durationMinutes },
             set: { newValue in
                 if let minutes = newValue, minutes > 0 {
-                    workout.durationMinutes = minutes
+                    workout.applyManualSessionDuration(totalSeconds: minutes * 60)
                 } else {
                     workout.durationMinutes = nil
                 }
