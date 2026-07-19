@@ -232,6 +232,130 @@ final class InsightsCalculatorTests: XCTestCase {
         XCTAssertEqual(snap.buckets.last?.axisLabel, "18–24")
     }
 
+    func test_threeMonths_hasThirteenConsecutiveWeeklyBucketsEndingCurrentWeek() {
+        let snap = InsightsCalculator.snapshot(
+            from: [],
+            range: .threeMonths,
+            now: refNow,
+            calendar: calendar
+        )
+        guard let currentMonday = InsightsCalculator.mondayWeekStart(containing: refNow, calendar: calendar) else {
+            XCTFail("monday")
+            return
+        }
+
+        XCTAssertEqual(snap.buckets.count, 13)
+        XCTAssertTrue(calendar.isDate(snap.buckets.last!.intervalStart, inSameDayAs: currentMonday))
+        XCTAssertEqual(snap.buckets.last?.axisLabel, "10–16")
+
+        for index in 1..<snap.buckets.count {
+            let previous = snap.buckets[index - 1].intervalStart
+            let current = snap.buckets[index].intervalStart
+            XCTAssertEqual(calendar.dateComponents([.day], from: previous, to: current).day, 7)
+            XCTAssertEqual(snap.buckets[index].chronologicalIndex, index)
+        }
+
+        let labelIndices = InsightsCalculator.visibleAxisLabelIndices(
+            bucketCount: snap.buckets.count,
+            range: .threeMonths
+        )
+        XCTAssertLessThan(labelIndices.count, snap.buckets.count)
+        XCTAssertEqual(labelIndices.last, snap.buckets.count - 1)
+    }
+
+    func test_threeMonths_aggregatesValidSessionsByMondayWeekAndExcludesOlderData() {
+        let e = Exercise(name: "T", category: "C", mode: "reps", loadAllowed: false)
+        let entry = WorkoutEntry(exercise: e, isDone: true, sets: [])
+        guard
+            let firstWeek = calendar.date(from: DateComponents(year: 2024, month: 3, day: 18)),
+            let insideWeek = calendar.date(from: DateComponents(year: 2024, month: 4, day: 10, hour: 8)),
+            let oldDay = calendar.date(from: DateComponents(year: 2024, month: 3, day: 17, hour: 8))
+        else {
+            XCTFail("dates")
+            return
+        }
+
+        let training = WorkoutDay(
+            date: insideWeek,
+            entries: [entry],
+            startedAt: insideWeek,
+            endedAt: insideWeek.addingTimeInterval(30 * 60),
+            sessionType: "training"
+        )
+        let climbing = WorkoutDay(
+            date: insideWeek.addingTimeInterval(3600),
+            entries: [entry],
+            startedAt: insideWeek.addingTimeInterval(3600),
+            endedAt: insideWeek.addingTimeInterval(3600 + 45 * 60),
+            sessionType: "climbing"
+        )
+        let older = WorkoutDay(
+            date: oldDay,
+            entries: [entry],
+            startedAt: oldDay,
+            endedAt: oldDay.addingTimeInterval(60 * 60),
+            sessionType: "training"
+        )
+
+        let snap = InsightsCalculator.snapshot(
+            from: [training, climbing, older],
+            range: .threeMonths,
+            now: refNow,
+            calendar: calendar
+        )
+
+        XCTAssertEqual(snap.buckets.count, 13)
+        XCTAssertTrue(calendar.isDate(snap.buckets.first!.intervalStart, inSameDayAs: firstWeek))
+        let bucket = snap.buckets.first { $0.axisLabel == "8–14" }
+        XCTAssertEqual(bucket?.sessionCount, 2)
+        XCTAssertEqual(bucket?.trainingSessions, 1)
+        XCTAssertEqual(bucket?.climbingSessions, 1)
+        XCTAssertEqual(bucket?.trainingTypeTimeSeconds ?? 0, 30 * 60, accuracy: 0.01)
+        XCTAssertEqual(bucket?.climbingTypeTimeSeconds ?? 0, 45 * 60, accuracy: 0.01)
+        XCTAssertEqual(bucket?.trainingTimeSeconds ?? 0, 75 * 60, accuracy: 0.01)
+        XCTAssertEqual(snap.buckets.reduce(0) { $0 + $1.sessionCount }, 2)
+    }
+
+    func test_loadBuckets_threeMonths_aggregatesLoadByWeekAndOrigin() {
+        let e = Exercise(name: "T", category: "C", mode: "reps", loadAllowed: false)
+        let entry = WorkoutEntry(exercise: e, isDone: true, sets: [])
+        guard
+            let insideWeek = calendar.date(from: DateComponents(year: 2024, month: 4, day: 10, hour: 8)),
+            let oldDay = calendar.date(from: DateComponents(year: 2024, month: 3, day: 17, hour: 8))
+        else {
+            XCTFail("dates")
+            return
+        }
+
+        let training = WorkoutDay(date: insideWeek, entries: [entry], sessionType: "training")
+        training.durationMinutes = 30
+        training.rpe = 5
+
+        let climbing = WorkoutDay(date: insideWeek.addingTimeInterval(3600), entries: [entry], sessionType: "climbing")
+        climbing.durationMinutes = 45
+        climbing.rpe = 6
+
+        let older = WorkoutDay(date: oldDay, entries: [entry], sessionType: "climbing")
+        older.durationMinutes = 60
+        older.rpe = 10
+
+        let buckets = InsightsCalculator.loadBuckets(
+            from: [training, climbing, older],
+            range: .threeMonths,
+            now: refNow,
+            calendar: calendar
+        )
+
+        XCTAssertEqual(buckets.count, 13)
+        let bucket = buckets.first {
+            InsightsCalculator.bucketAxisLabel(intervalStart: $0.date, range: .threeMonths, calendar: calendar) == "8–14"
+        }
+        XCTAssertEqual(bucket?.gymLoad, 150)
+        XCTAssertEqual(bucket?.rockLoad, 270)
+        XCTAssertEqual(bucket?.totalLoad, 420)
+        XCTAssertEqual(buckets.reduce(0) { $0 + $1.totalLoad }, 420)
+    }
+
     func test_sixMonths_showsSixRollingMonthsEndingCurrent() {
         let snap = InsightsCalculator.snapshot(
             from: [],
@@ -294,6 +418,7 @@ final class InsightsCalculatorTests: XCTestCase {
             let count: Int = switch range {
             case .sevenDays: 7
             case .oneMonth: 5
+            case .threeMonths: 13
             case .sixMonths: 6
             case .oneYear: 12
             }

@@ -4,6 +4,7 @@ import Foundation
 enum StatsRange: String, CaseIterable, Identifiable {
     case sevenDays = "7D"
     case oneMonth = "1M"
+    case threeMonths = "3M"
     case sixMonths = "6M"
     case oneYear = "1A"
 

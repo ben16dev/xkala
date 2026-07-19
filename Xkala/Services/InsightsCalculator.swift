@@ -236,17 +236,23 @@ enum InsightsCalculator {
         return result
     }
 
-    /// Últimas 5 semanas reales (lunes–domingo) terminando en la semana actual.
-    static func lastFiveWeekStarts(endingAt now: Date, calendar: Calendar) -> [Date] {
+    /// Últimas `count` semanas reales (lunes–domingo) terminando en la semana actual.
+    static func lastWeekStarts(count: Int, endingAt now: Date, calendar: Calendar) -> [Date] {
+        guard count > 0 else { return [] }
         let cal = insightsCalendar(from: calendar)
         guard var monday = mondayWeekStart(containing: now, calendar: cal) else { return [] }
         var result: [Date] = []
-        for _ in 0..<5 {
+        for _ in 0..<count {
             result.insert(monday, at: 0)
             guard let previous = cal.date(byAdding: .day, value: -7, to: monday) else { break }
             monday = previous
         }
         return result
+    }
+
+    /// Últimas 5 semanas reales (lunes–domingo) terminando en la semana actual.
+    static func lastFiveWeekStarts(endingAt now: Date, calendar: Calendar) -> [Date] {
+        lastWeekStarts(count: 5, endingAt: now, calendar: calendar)
     }
 
     /// Inicios de mes para los últimos `count` meses móviles terminando en el mes de `now`.
@@ -291,7 +297,7 @@ enum InsightsCalculator {
         let useSparse: Bool = switch range {
         case .oneYear:
             bucketCount > 7
-        case .oneMonth:
+        case .oneMonth, .threeMonths:
             bucketCount > 5
         case .sixMonths, .sevenDays:
             false
@@ -343,6 +349,8 @@ enum InsightsCalculator {
             startInstant = lastSevenDayStarts(endingAt: now, calendar: calendar).first ?? now
         case .oneMonth:
             startInstant = lastFiveWeekStarts(endingAt: now, calendar: calendar).first ?? now
+        case .threeMonths:
+            startInstant = lastWeekStarts(count: 13, endingAt: now, calendar: calendar).first ?? now
         case .sixMonths:
             startInstant = lastMonthStarts(count: 6, endingAt: now, calendar: calendar).first ?? now
         case .oneYear:
@@ -364,6 +372,8 @@ enum InsightsCalculator {
             return lastSevenDayStarts(endingAt: windowEnd, calendar: calendar)
         case .oneMonth:
             return lastFiveWeekStarts(endingAt: windowEnd, calendar: calendar)
+        case .threeMonths:
+            return lastWeekStarts(count: 13, endingAt: windowEnd, calendar: calendar)
         case .sixMonths:
             return lastMonthStarts(count: 6, endingAt: windowEnd, calendar: calendar)
         case .oneYear:
@@ -390,7 +400,7 @@ enum InsightsCalculator {
         case .sevenDays:
             return calendar.startOfDay(for: sessionDate)
 
-        case .oneMonth:
+        case .oneMonth, .threeMonths:
             guard let monday = mondayWeekStart(containing: sessionDate, calendar: calendar) else {
                 return nil
             }
@@ -440,6 +450,8 @@ enum InsightsCalculator {
         case .sevenDays:
             return weekdayAxisLetter(date: intervalStart, calendar: calendar)
         case .oneMonth:
+            return weekAxisLabel(weekStartMonday: intervalStart, calendar: calendar)
+        case .threeMonths:
             return weekAxisLabel(weekStartMonday: intervalStart, calendar: calendar)
         case .sixMonths:
             return monthAxisAbbreviationUppercase(date: intervalStart, calendar: calendar)

@@ -127,6 +127,8 @@ enum ProgressCategoryCalculator {
             startInstant = InsightsCalculator.lastSevenDayStarts(endingAt: now, calendar: calendar).first ?? now
         case .oneMonth:
             startInstant = InsightsCalculator.lastFiveWeekStarts(endingAt: now, calendar: calendar).first ?? now
+        case .threeMonths:
+            startInstant = InsightsCalculator.lastWeekStarts(count: 13, endingAt: now, calendar: calendar).first ?? now
         case .sixMonths:
             startInstant = InsightsCalculator.lastMonthStarts(count: 6, endingAt: now, calendar: calendar).first ?? now
         case .oneYear:
@@ -145,6 +147,8 @@ enum ProgressCategoryCalculator {
             return InsightsCalculator.lastSevenDayStarts(endingAt: now, calendar: calendar)
         case .oneMonth:
             return InsightsCalculator.lastFiveWeekStarts(endingAt: now, calendar: calendar)
+        case .threeMonths:
+            return InsightsCalculator.lastWeekStarts(count: 13, endingAt: now, calendar: calendar)
         case .sixMonths:
             return InsightsCalculator.lastMonthStarts(count: 6, endingAt: now, calendar: calendar)
         case .oneYear:
@@ -162,7 +166,7 @@ enum ProgressCategoryCalculator {
         case .sevenDays:
             return calendar.startOfDay(for: sessionDate)
 
-        case .oneMonth:
+        case .oneMonth, .threeMonths:
             guard let monday = InsightsCalculator.mondayWeekStart(containing: sessionDate, calendar: calendar) else {
                 return nil
             }

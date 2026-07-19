@@ -59,6 +59,7 @@ enum InsightsChartAxisFormatting {
         switch range {
         case .sevenDays: 0.42
         case .oneMonth: 0.62
+        case .threeMonths: 0.52
         case .sixMonths: 0.48
         case .oneYear: 0.52
         }
@@ -73,13 +74,35 @@ enum InsightsChartAxisFormatting {
     static func chartPlotPadding(for range: StatsRange) -> EdgeInsets {
         let bottom: CGFloat = switch range {
         case .oneMonth: 22
-        case .oneYear, .sixMonths, .sevenDays: 20
+        case .oneYear, .sixMonths, .sevenDays, .threeMonths: 20
         }
         return EdgeInsets(top: 4, leading: 6, bottom: bottom, trailing: 6)
     }
 
     static let timeLineColor = XkalaTheme.chartTimeLine
     static let timeAxisLabelColor = Color.white.opacity(0.88)
+
+    /// Etiqueta visible del eje X: semanas numeradas por posición cronológica en 1M/3M.
+    static func displayAxisLabel(storedLabel: String, index: Int, range: StatsRange) -> String {
+        switch range {
+        case .oneMonth, .threeMonths:
+            return "SEM \(index + 1)"
+        case .sevenDays, .sixMonths, .oneYear:
+            return storedLabel
+        }
+    }
+
+    /// Índices con etiqueta visible; 1M muestra todas las SEM; 3M solo cada 3 semanas.
+    static func displayAxisLabelIndices(bucketCount: Int, range: StatsRange) -> [Int] {
+        switch range {
+        case .oneMonth:
+            return InsightsCalculator.allBucketAxisIndices(bucketCount: bucketCount)
+        case .threeMonths:
+            return [0, 3, 6, 9, 12].filter { $0 < bucketCount }
+        case .sevenDays, .sixMonths, .oneYear:
+            return InsightsCalculator.visibleAxisLabelIndices(bucketCount: bucketCount, range: range)
+        }
+    }
 }
 
 extension View {
@@ -96,7 +119,7 @@ extension View {
             GeometryReader { geometry in
                 let plotFrame = geometry[proxy.plotAreaFrame]
                 let guideIndices = InsightsCalculator.allBucketAxisIndices(bucketCount: bucketCount)
-                let labelIndices = InsightsCalculator.visibleAxisLabelIndices(
+                let labelIndices = InsightsChartAxisFormatting.displayAxisLabelIndices(
                     bucketCount: bucketCount,
                     range: range
                 )
@@ -120,7 +143,12 @@ extension View {
                        let x = proxy.position(forX: Double(index)) {
                         let tickX = plotFrame.origin.x + x
                         let labelY = plotFrame.maxY + InsightsChartAxisFormatting.xAxisLabelBelowPlotOffset
-                        Text(axisLabels[index])
+                        let label = InsightsChartAxisFormatting.displayAxisLabel(
+                            storedLabel: axisLabels[index],
+                            index: index,
+                            range: range
+                        )
+                        Text(label)
                             .font(.caption2.weight(.medium))
                             .foregroundStyle(Color.white.opacity(0.82))
                             .multilineTextAlignment(.center)
