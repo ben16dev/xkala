@@ -11,12 +11,15 @@ struct ExerciseTestSnapshot: Equatable {
     let deltaText: String
     /// `true` si el último resultado supera al anterior.
     let isImproving: Bool
+    /// Fecha de la sesión del último resultado válido. `nil` si `hasData == false`.
+    let lastResultDate: Date?
 
     static let empty = ExerciseTestSnapshot(
         hasData: false,
         lastResultText: "",
         bestResultText: "",
         deltaText: "",
-        isImproving: false
+        isImproving: false,
+        lastResultDate: nil
     )
 }

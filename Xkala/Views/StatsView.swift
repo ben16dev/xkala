@@ -214,19 +214,20 @@ private struct StatCard: View {
 
 private struct CurrentTestStateSection: View {
     let snapshot: CurrentTestStateSnapshot
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Estado actual")
                 .font(.headline)
                 .foregroundStyle(.primary)
-            
+
             VStack(alignment: .leading, spacing: 12) {
                 ForEach(snapshot.orderedCapacities, id: \.self) { capacity in
                     if let result = snapshot.resultsByCapacity[capacity] {
                         TestCapacityRow(
                             capacity: capacity.displayName,
-                            result: result.resultText
+                            result: result.resultText,
+                            age: result.ageText()
                         )
                     }
                 }
@@ -240,17 +241,24 @@ private struct CurrentTestStateSection: View {
 private struct TestCapacityRow: View {
     let capacity: String
     let result: String
-    
+    let age: String
+
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
             Text(capacity)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            Spacer()
-            Text(result)
-                .font(.body.weight(.medium))
-                .foregroundStyle(.primary)
-                .multilineTextAlignment(.trailing)
+            Spacer(minLength: 8)
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(result)
+                    .font(.body.weight(.medium))
+                    .foregroundStyle(.primary)
+                    .multilineTextAlignment(.trailing)
+                Text(age)
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .multilineTextAlignment(.trailing)
+            }
         }
     }
 }

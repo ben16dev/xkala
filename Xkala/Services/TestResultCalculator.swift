@@ -52,7 +52,8 @@ struct TestResultCalculator {
             lastResultText: lastText,
             bestResultText: bestText,
             deltaText: deltaText,
-            isImproving: improving
+            isImproving: improving,
+            lastResultDate: last.workoutDate
         )
     }
 
