@@ -51,13 +51,15 @@ final class WorkoutDaySessionSemanticsTests: XCTestCase {
         let workout = WorkoutDay()
         let end = Date(timeIntervalSince1970: 1_700_000_000)
         let start = end.addingTimeInterval(-75 * 60)
+        let preservedDate = Date(timeIntervalSince1970: 1_600_000_000)
+        workout.date = preservedDate
         workout.startSessionTimer(at: start)
 
         workout.finishSessionTimer(at: end)
 
         XCTAssertEqual(workout.endedAt, end)
         XCTAssertEqual(workout.startedAt, start)
-        XCTAssertEqual(workout.date, start)
+        XCTAssertEqual(workout.date, preservedDate)
         XCTAssertEqual(workout.durationMinutes, 75)
         XCTAssertEqual(SessionTimeFormatter.seconds(from: workout), 75 * 60)
     }
@@ -102,10 +104,12 @@ final class WorkoutDaySessionSemanticsTests: XCTestCase {
         XCTAssertEqual(workout.durationMinutes, 90)
     }
 
-    func testApplyManualSessionDurationOnClosedSessionRecalculatesStartedAtAndDate() {
+    func testApplyManualSessionDurationOnClosedSessionRecalculatesStartedAtPreservesDate() {
         let workout = WorkoutDay()
         let start = Date(timeIntervalSince1970: 1_700_000_000)
         let end = start.addingTimeInterval(45 * 60)
+        let preservedDate = Date(timeIntervalSince1970: 1_600_000_000)
+        workout.date = preservedDate
         workout.startSessionTimer(at: start)
         workout.finishSessionTimer(at: end)
 
@@ -114,7 +118,7 @@ final class WorkoutDaySessionSemanticsTests: XCTestCase {
         let expectedStart = end.addingTimeInterval(-75 * 60)
         XCTAssertEqual(workout.endedAt, end)
         XCTAssertEqual(workout.startedAt, expectedStart)
-        XCTAssertEqual(workout.date, expectedStart)
+        XCTAssertEqual(workout.date, preservedDate)
         XCTAssertEqual(workout.durationMinutes, 75)
         XCTAssertEqual(workout.effectiveDurationMinutes, 75)
         XCTAssertEqual(SessionTimeFormatter.seconds(from: workout), 75 * 60)
