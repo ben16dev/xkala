@@ -13,54 +13,10 @@ struct StatsView: View {
                 if testStateSnapshot.hasData {
                     CurrentTestStateSection(snapshot: testStateSnapshot)
                 }
-                
-                StatCard(
-                    title: "Entrenos totales",
-                    value: "\(snapshot.totalWorkouts)",
-                    systemImage: "calendar.badge.checkmark"
-                )
-                StatCard(
-                    title: "Entrenos últimos 30 días",
-                    value: "\(snapshot.workoutsLast30Days)",
-                    systemImage: "clock.badge"
-                )
-                StatCard(
-                    title: "Ejercicios totales",
-                    value: "\(snapshot.totalCompletedExercises)",
-                    systemImage: "checkmark.circle"
-                )
-                StatCard(
-                    title: "Categoría favorita",
-                    value: snapshot.favoriteCategory,
-                    systemImage: "star.circle"
-                )
-                StatCard(
-                    title: "Tiempo total entrenado",
-                    value: DurationFormatting.formatSpanish(duration: snapshot.totalTrainingTime),
-                    systemImage: "timer"
-                )
 
-                if let load7 = snapshot.sessionLoadLast7Days {
-                    StatCard(
-                        title: "Carga últimos 7 días",
-                        value: "\(load7)",
-                        systemImage: "bolt.heart"
-                    )
-                }
+                RecentActivitySection(snapshot: snapshot)
 
-                if let load30 = snapshot.sessionLoadLast30Days {
-                    StatCard(
-                        title: "Carga últimos 30 días",
-                        value: "\(load30)",
-                        systemImage: "chart.line.uptrend.xyaxis"
-                    )
-                }
-
-                StatCard(
-                    title: "Último objetivo",
-                    value: snapshot.lastTrainingMethod?.displayName ?? "—",
-                    systemImage: "target"
-                )
+                HistoryStatsSection(snapshot: snapshot)
 
                 if let climbing = snapshot.climbingStats {
                     ClimbingStatsSection(snapshot: climbing)
@@ -74,6 +30,99 @@ struct StatsView: View {
         .xkalaScreenBackground(.calendar)
         .navigationTitle("Estadísticas")
         .navigationBarTitleDisplayMode(.large)
+    }
+}
+
+private struct RecentActivitySection: View {
+    let snapshot: GlobalStatsSnapshot
+
+    private var metrics: [(label: String, value: String)] {
+        var items: [(label: String, value: String)] = [
+            ("Entrenos últimos 30 días", "\(snapshot.workoutsLast30Days)")
+        ]
+        if let load7 = snapshot.sessionLoadLast7Days {
+            items.append(("Carga últimos 7 días", "\(load7)"))
+        }
+        if let load30 = snapshot.sessionLoadLast30Days {
+            items.append(("Carga últimos 30 días", "\(load30)"))
+        }
+        if let lastMethod = snapshot.lastTrainingMethod {
+            items.append(("Último objetivo", lastMethod.displayName))
+        }
+        return items
+    }
+
+    private let columns = [
+        GridItem(.flexible(), spacing: 12, alignment: .topLeading),
+        GridItem(.flexible(), spacing: 12, alignment: .topLeading)
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Actividad reciente")
+                .font(.headline)
+                .foregroundStyle(.primary)
+
+            LazyVGrid(columns: columns, alignment: .leading, spacing: 12) {
+                ForEach(Array(metrics.enumerated()), id: \.offset) { _, metric in
+                    RecentActivityMetricCell(label: metric.label, value: metric.value)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .xkalaCard()
+        }
+    }
+}
+
+private struct RecentActivityMetricCell: View {
+    let label: String
+    let value: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(value)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct HistoryStatsSection: View {
+    let snapshot: GlobalStatsSnapshot
+
+    private var metrics: [(label: String, value: String)] {
+        [
+            ("Entrenos totales", "\(snapshot.totalWorkouts)"),
+            ("Tiempo total entrenado", DurationFormatting.formatSpanish(duration: snapshot.totalTrainingTime)),
+            ("Ejercicios totales", "\(snapshot.totalCompletedExercises)")
+        ]
+    }
+
+    private let columns = [
+        GridItem(.flexible(), spacing: 12, alignment: .topLeading),
+        GridItem(.flexible(), spacing: 12, alignment: .topLeading)
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Historial")
+                .font(.headline)
+                .foregroundStyle(.primary)
+
+            LazyVGrid(columns: columns, alignment: .leading, spacing: 12) {
+                ForEach(Array(metrics.enumerated()), id: \.offset) { _, metric in
+                    RecentActivityMetricCell(label: metric.label, value: metric.value)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .xkalaCard()
+        }
     }
 }
 
