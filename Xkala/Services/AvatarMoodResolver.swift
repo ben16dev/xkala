@@ -271,17 +271,23 @@ enum AvatarMoodResolver {
         }
     }
 
+    /// Días naturales desde la última sesión real completada.
+    ///
+    /// Mide desde `WorkoutDay.date` (fecha de sesión que muestra el calendario y que usa
+    /// `GlobalStatsSnapshot`), no desde `endedAt`. Así la inactividad es coherente con lo que ve el
+    /// usuario y no depende de cuándo se cerró el cronómetro (elimina la discrepancia manual vs timer,
+    /// donde una sesión con fecha pasada pero `endedAt` reciente reportaba menos días de los reales).
     static func daysSinceLastRealSession(
         in real: [WorkoutDay],
         now: Date,
         calendar: Calendar
     ) -> Int {
-        guard let last = real.max(by: { sessionReferenceDate($0) < sessionReferenceDate($1) }) else {
+        guard let last = real.max(by: { $0.date < $1.date }) else {
             return Int.max
         }
 
         let todayStart = calendar.startOfDay(for: now)
-        let lastStart = calendar.startOfDay(for: sessionReferenceDate(last))
+        let lastStart = calendar.startOfDay(for: last.date)
         return calendar.dateComponents([.day], from: lastStart, to: todayStart).day ?? 0
     }
 
