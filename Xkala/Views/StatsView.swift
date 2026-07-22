@@ -21,8 +21,6 @@ struct StatsView: View {
                 if let climbing = snapshot.climbingStats {
                     ClimbingStatsSection(snapshot: climbing)
                 }
-
-                RecentRecordsSection(records: snapshot.recentRecords)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
@@ -264,68 +262,6 @@ private struct ClimbingDisciplineMetric: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-}
-
-private struct RecentRecordsSection: View {
-    let records: [RecentRecordSnapshot]
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Récords recientes")
-                .font(.headline)
-                .foregroundStyle(.primary)
-
-            if records.isEmpty {
-                Text("Sin récords recientes")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .xkalaCard()
-            } else {
-                ForEach(records) { record in
-                    NavigationLink {
-                        WorkoutDetailView(workout: record.workout)
-                    } label: {
-                        RecentRecordCard(record: record)
-                    }
-                    .buttonStyle(.plain)
-                    .navigationLinkIndicatorVisibility(.hidden)
-                }
-            }
-        }
-    }
-}
-
-private struct RecentRecordCard: View {
-    let record: RecentRecordSnapshot
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "flame.fill")
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(XkalaTheme.mint)
-                .frame(width: 28)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(record.exerciseName)
-                    .font(.headline)
-                    .foregroundStyle(.primary)
-
-                Text(record.bestMark)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-
-                Text(record.recordDate.formatted(date: .abbreviated, time: .omitted))
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-            }
-
-            Spacer(minLength: 0)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .contentShape(Rectangle())
-        .xkalaCard()
     }
 }
 

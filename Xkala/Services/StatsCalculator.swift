@@ -25,7 +25,6 @@ enum StatsCalculator {
 
         let favoriteCategory = favoriteCategory(from: completedEntries)
         let totalTrainingTime = totalValidTrainingTime(from: workouts)
-        let recentRecords = recentRecords(from: completedEntries, workouts: workouts)
         let sessionLoadLast7Days = totalSessionLoad(workouts: workouts, dayCount: 7, now: now, calendar: calendar)
         let sessionLoadLast30Days = totalSessionLoad(workouts: workouts, dayCount: 30, now: now, calendar: calendar)
         let sessionLoadPrevious30Days = previousPeriodSessionLoad(
@@ -48,7 +47,6 @@ enum StatsCalculator {
             totalCompletedExercises: totalCompletedExercises,
             favoriteCategory: favoriteCategory,
             totalTrainingTime: totalTrainingTime,
-            recentRecords: recentRecords,
             sessionLoadLast7Days: sessionLoadLast7Days,
             sessionLoadLast30Days: sessionLoadLast30Days,
             sessionLoadLast30DaysDelta: sessionLoadLast30DaysDelta,
@@ -188,61 +186,5 @@ enum StatsCalculator {
             }
             return partial + endedAt.timeIntervalSince(startedAt)
         }
-    }
-
-    private static func recentRecords(
-        from completedEntries: [WorkoutEntry],
-        workouts: [WorkoutDay]
-    ) -> [RecentRecordSnapshot] {
-        let exercises = uniqueExercises(from: completedEntries)
-
-        let recordsWithDate: [(record: RecentRecordSnapshot, date: Date)] = exercises.compactMap { exercise in
-            guard let pr = ExerciseProgressCalculator.latestStrictPersonalRecord(for: exercise, in: workouts) else {
-                return nil
-            }
-
-            let exerciseName = exercise.name.trimmingCharacters(in: .whitespacesAndNewlines)
-            let normalizedMark = pr.markText.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !exerciseName.isEmpty, !normalizedMark.isEmpty else { return nil }
-
-            let record = RecentRecordSnapshot(
-                id: normalize(exerciseName) + "|" + normalize(exercise.category) + "|" + normalize(exercise.mode),
-                exerciseName: exerciseName,
-                bestMark: normalizedMark,
-                recordDate: pr.sessionDate,
-                workout: pr.workout,
-                entry: pr.entry
-            )
-            return (record, pr.sessionDate)
-        }
-
-        return recordsWithDate
-            .sorted { $0.date > $1.date }
-            .prefix(3)
-            .map(\.record)
-    }
-
-    private static func uniqueExercises(from entries: [WorkoutEntry]) -> [Exercise] {
-        var seenKeys = Set<String>()
-        var exercises: [Exercise] = []
-
-        for entry in entries {
-            let name = entry.exercise.name.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !name.isEmpty else { continue }
-
-            let key = normalize(name) + "|" + normalize(entry.exercise.category) + "|" + normalize(entry.exercise.mode)
-            guard !seenKeys.contains(key) else { continue }
-            seenKeys.insert(key)
-            exercises.append(entry.exercise)
-        }
-
-        return exercises
-    }
-
-    private static func normalize(_ text: String) -> String {
-        text
-            .folding(options: .diacriticInsensitive, locale: Locale(identifier: "es_ES"))
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
     }
 }
