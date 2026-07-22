@@ -9,8 +9,13 @@ enum StatsCalculator {
         guard !workouts.isEmpty else { return .empty }
 
         let totalWorkouts = workouts.count
+        // Mismo criterio vigente: ventana abierta hacia atrás desde `now` (sin startOfDay ni tope superior).
         let cutoff30Days = calendar.date(byAdding: .day, value: -30, to: now) ?? now
         let workoutsLast30Days = workouts.filter { $0.date >= cutoff30Days }.count
+        // Periodo anterior contiguo y sin solape: [now-60d, now-30d).
+        let cutoff60Days = calendar.date(byAdding: .day, value: -60, to: now) ?? now
+        let workoutsPrevious30Days = workouts.filter { $0.date >= cutoff60Days && $0.date < cutoff30Days }.count
+        let workoutsLast30DaysDelta = workoutsLast30Days - workoutsPrevious30Days
 
         // Volumen realizado: todas las entradas marcadas como hechas, sin filtrar por éxito en bloque/travesía.
         let completedEntries = workouts
@@ -23,6 +28,13 @@ enum StatsCalculator {
         let recentRecords = recentRecords(from: completedEntries, workouts: workouts)
         let sessionLoadLast7Days = totalSessionLoad(workouts: workouts, dayCount: 7, now: now, calendar: calendar)
         let sessionLoadLast30Days = totalSessionLoad(workouts: workouts, dayCount: 30, now: now, calendar: calendar)
+        let sessionLoadPrevious30Days = previousPeriodSessionLoad(
+            workouts: workouts,
+            dayCount: 30,
+            now: now,
+            calendar: calendar
+        )
+        let sessionLoadLast30DaysDelta = sessionLoadLast30Days.map { $0 - sessionLoadPrevious30Days }
         let lastTrainingMethod = lastTrainingMethod(
             workouts: workouts,
             now: now
@@ -32,12 +44,14 @@ enum StatsCalculator {
         return GlobalStatsSnapshot(
             totalWorkouts: totalWorkouts,
             workoutsLast30Days: workoutsLast30Days,
+            workoutsLast30DaysDelta: workoutsLast30DaysDelta,
             totalCompletedExercises: totalCompletedExercises,
             favoriteCategory: favoriteCategory,
             totalTrainingTime: totalTrainingTime,
             recentRecords: recentRecords,
             sessionLoadLast7Days: sessionLoadLast7Days,
             sessionLoadLast30Days: sessionLoadLast30Days,
+            sessionLoadLast30DaysDelta: sessionLoadLast30DaysDelta,
             lastTrainingMethod: lastTrainingMethod,
             climbingStats: climbingStats
         )
@@ -86,6 +100,34 @@ enum StatsCalculator {
             .compactMap(\.sessionLoad)
 
         guard !loads.isEmpty else { return nil }
+        return loads.reduce(0, +)
+    }
+
+    /// Carga del periodo de `dayCount` días inmediatamente anterior a la ventana de `totalSessionLoad`.
+    /// Misma base (`startOfDay(now)`), mismo `sessionLoad`; vacío → 0 (para delta).
+    private static func previousPeriodSessionLoad(
+        workouts: [WorkoutDay],
+        dayCount: Int,
+        now: Date,
+        calendar: Calendar
+    ) -> Int {
+        guard dayCount > 0,
+              let currentStart = calendar.date(
+                byAdding: .day,
+                value: -(dayCount - 1),
+                to: calendar.startOfDay(for: now)
+              ),
+              let previousStart = calendar.date(
+                byAdding: .day,
+                value: -dayCount,
+                to: currentStart
+              )
+        else { return 0 }
+
+        let loads = workouts
+            .filter { $0.date >= previousStart && $0.date < currentStart }
+            .compactMap(\.sessionLoad)
+
         return loads.reduce(0, +)
     }
 

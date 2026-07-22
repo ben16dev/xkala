@@ -1,0 +1,23 @@
+---
+description: Implementaciones ligeras iOS
+alwaysApply: false
+---
+
+# Xkala — Implementaciones ligeras iOS
+
+Aplica esta regla solo a cambios de bajo riesgo (UI, copy, ajustes locales, refactors triviales sin tocar datos).
+
+## No debes
+
+- Ejecutar `xcodebuild`
+- Descargar runtimes
+- Abrir simuladores
+- Ejecutar tests automáticamente
+
+## Debes
+
+- Indicar únicamente la prueba manual recomendada
+
+## Excepción
+
+Si el cambio afecta a SwiftData, persistencia, backups, estadísticas o modelos, ignora esta regla.

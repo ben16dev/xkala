@@ -36,18 +36,29 @@ struct StatsView: View {
 private struct RecentActivitySection: View {
     let snapshot: GlobalStatsSnapshot
 
-    private var metrics: [(label: String, value: String)] {
-        var items: [(label: String, value: String)] = [
-            ("Entrenos últimos 30 días", "\(snapshot.workoutsLast30Days)")
+    private var metrics: [(label: String, value: String, comparison: String?, comparisonColor: Color?)] {
+        var items: [(label: String, value: String, comparison: String?, comparisonColor: Color?)] = [
+            (
+                "Entrenos 30 días",
+                "\(snapshot.workoutsLast30Days)",
+                Self.formattedDelta(snapshot.workoutsLast30DaysDelta),
+                Self.deltaColor(snapshot.workoutsLast30DaysDelta)
+            )
         ]
         if let load7 = snapshot.sessionLoadLast7Days {
-            items.append(("Carga últimos 7 días", "\(load7)"))
+            items.append(("Carga últimos 7 días", "\(load7)", nil, nil))
         }
         if let load30 = snapshot.sessionLoadLast30Days {
-            items.append(("Carga últimos 30 días", "\(load30)"))
+            let delta = snapshot.sessionLoadLast30DaysDelta ?? 0
+            items.append((
+                "Carga últimos 30 días",
+                "\(load30)",
+                Self.formattedDelta(delta),
+                Self.deltaColor(delta)
+            ))
         }
         if let lastMethod = snapshot.lastTrainingMethod {
-            items.append(("Último objetivo", lastMethod.displayName))
+            items.append(("Último objetivo", lastMethod.displayName, nil, nil))
         }
         return items
     }
@@ -65,18 +76,37 @@ private struct RecentActivitySection: View {
 
             LazyVGrid(columns: columns, alignment: .leading, spacing: 12) {
                 ForEach(Array(metrics.enumerated()), id: \.offset) { _, metric in
-                    RecentActivityMetricCell(label: metric.label, value: metric.value)
+                    RecentActivityMetricCell(
+                        label: metric.label,
+                        value: metric.value,
+                        comparison: metric.comparison,
+                        comparisonColor: metric.comparisonColor
+                    )
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .xkalaCard()
         }
     }
+
+    private static func formattedDelta(_ delta: Int) -> String {
+        if delta > 0 { return "↑ +\(delta)" }
+        if delta < 0 { return "↓ \(delta)" }
+        return "= 0"
+    }
+
+    private static func deltaColor(_ delta: Int) -> Color {
+        if delta > 0 { return .green }
+        if delta < 0 { return .red }
+        return .yellow
+    }
 }
 
 private struct RecentActivityMetricCell: View {
     let label: String
     let value: String
+    var comparison: String? = nil
+    var comparisonColor: Color? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -84,10 +114,18 @@ private struct RecentActivityMetricCell: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            Text(value)
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(.primary)
-                .fixedSize(horizontal: false, vertical: true)
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(value)
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let comparison {
+                    Text(comparison)
+                        .font(.subheadline)
+                        .foregroundStyle(comparisonColor ?? .secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -129,45 +167,103 @@ private struct HistoryStatsSection: View {
 private struct ClimbingStatsSection: View {
     let snapshot: ClimbingStatsSnapshot
 
+    private var showsBlocks: Bool { snapshot.blocksTotal > 0 }
+    private var showsTraverses: Bool { snapshot.traversesTotal > 0 }
+
+    private let columns = [
+        GridItem(.flexible(), spacing: 12, alignment: .topLeading),
+        GridItem(.flexible(), spacing: 12, alignment: .topLeading)
+    ]
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Bloques y Travesías")
                 .font(.headline)
                 .foregroundStyle(.primary)
 
-            VStack(alignment: .leading, spacing: 12) {
-                ClimbingMetricRow(title: "Bloques realizados", value: "\(snapshot.blocksTotal)")
-                ClimbingMetricRow(title: "Bloques con éxito", value: "\(snapshot.blocksSuccess)")
-                if let blockRate = snapshot.blockSuccessRateText {
-                    ClimbingMetricRow(title: "Tasa éxito bloques", value: blockRate)
-                }
-                ClimbingMetricRow(title: "Travesías realizadas", value: "\(snapshot.traversesTotal)")
-                ClimbingMetricRow(title: "Travesías con éxito", value: "\(snapshot.traversesSuccess)")
-                if let traverseRate = snapshot.traverseSuccessRateText {
-                    ClimbingMetricRow(title: "Tasa éxito travesías", value: traverseRate)
+            Group {
+                if showsBlocks && showsTraverses {
+                    LazyVGrid(columns: columns, alignment: .leading, spacing: 12) {
+                        blocksSummary
+                        traversesSummary
+                    }
+                } else if showsBlocks {
+                    blocksSummary
+                } else if showsTraverses {
+                    traversesSummary
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .xkalaCard()
         }
     }
+
+    private var blocksSummary: some View {
+        ClimbingDisciplineSummary(
+            title: "Bloques",
+            totalLabel: "Bloques realizados",
+            totalValue: "\(snapshot.blocksTotal)",
+            successLabel: "Bloques con éxito",
+            successValue: "\(snapshot.blocksSuccess)",
+            rateLabel: "Tasa éxito bloques",
+            rateValue: snapshot.blockSuccessRateText
+        )
+    }
+
+    private var traversesSummary: some View {
+        ClimbingDisciplineSummary(
+            title: "Travesías",
+            totalLabel: "Travesías realizadas",
+            totalValue: "\(snapshot.traversesTotal)",
+            successLabel: "Travesías con éxito",
+            successValue: "\(snapshot.traversesSuccess)",
+            rateLabel: "Tasa éxito travesías",
+            rateValue: snapshot.traverseSuccessRateText
+        )
+    }
 }
 
-private struct ClimbingMetricRow: View {
+private struct ClimbingDisciplineSummary: View {
     let title: String
+    let totalLabel: String
+    let totalValue: String
+    let successLabel: String
+    let successValue: String
+    let rateLabel: String
+    let rateValue: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.primary)
+
+            ClimbingDisciplineMetric(label: totalLabel, value: totalValue)
+            ClimbingDisciplineMetric(label: successLabel, value: successValue)
+            if let rateValue {
+                ClimbingDisciplineMetric(label: rateLabel, value: rateValue)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct ClimbingDisciplineMetric: View {
+    let label: String
     let value: String
 
     var body: some View {
-        HStack(spacing: 12) {
-            Text(title)
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            Spacer()
+                .fixedSize(horizontal: false, vertical: true)
             Text(value)
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(.primary)
-                .multilineTextAlignment(.trailing)
+                .fixedSize(horizontal: false, vertical: true)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -270,7 +366,7 @@ private struct CurrentTestStateSection: View {
                 .font(.headline)
                 .foregroundStyle(.primary)
 
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 14) {
                 ForEach(snapshot.orderedCapacities, id: \.self) { capacity in
                     if let result = snapshot.resultsByCapacity[capacity] {
                         TestCapacityRow(
@@ -284,6 +380,7 @@ private struct CurrentTestStateSection: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .xkalaCard()
         }
+        .padding(.bottom, 4)
     }
 }
 
@@ -298,9 +395,9 @@ private struct TestCapacityRow: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             Spacer(minLength: 8)
-            VStack(alignment: .trailing, spacing: 2) {
+            VStack(alignment: .trailing, spacing: 4) {
                 Text(result)
-                    .font(.body.weight(.medium))
+                    .font(.title3.weight(.semibold))
                     .foregroundStyle(.primary)
                     .multilineTextAlignment(.trailing)
                 Text(age)
