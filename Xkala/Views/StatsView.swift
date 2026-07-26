@@ -7,11 +7,19 @@ struct StatsView: View {
     var body: some View {
         let snapshot = StatsCalculator.snapshot(from: workouts)
         let testStateSnapshot = CurrentTestStateCalculator.snapshot(from: workouts)
+        let activityInsight = ActivityInsightResolver.resolve(
+            snapshot: snapshot,
+            daysSinceLastRealSession: daysSinceLastRealSession
+        )
 
         ScrollView {
             VStack(spacing: 12) {
                 if testStateSnapshot.hasData {
                     CurrentTestStateSection(snapshot: testStateSnapshot)
+                }
+
+                if let activityInsight {
+                    ActivityInsightSection(insight: activityInsight)
                 }
 
                 RecentActivitySection(snapshot: snapshot)
@@ -28,6 +36,64 @@ struct StatsView: View {
         .xkalaScreenBackground(.calendar)
         .navigationTitle("Estadísticas")
         .navigationBarTitleDisplayMode(.large)
+    }
+
+    /// Días desde la última sesión real completada, reutilizando el filtrado de `AvatarMoodResolver`.
+    /// `Int.max` cuando no existe ninguna sesión real (el resolver lo interpreta como sin inactividad).
+    private var daysSinceLastRealSession: Int {
+        let now = Date()
+        let real = AvatarMoodResolver.realCompletedWorkouts(from: workouts, now: now, calendar: .current)
+        return AvatarMoodResolver.daysSinceLastRealSession(in: real, now: now, calendar: .current)
+    }
+}
+
+private struct ActivityInsightSection: View {
+    let insight: ActivityInsight
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: iconName)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 22)
+            Text(message)
+                .font(.subheadline)
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .xkalaCard()
+    }
+
+    private var message: String {
+        switch insight {
+        case let .inactive(days):
+            return "Llevas \(days) días sin entrenar."
+        case .loadIncreased:
+            return "Tu carga ha aumentado de forma notable."
+        case .loadDecreased:
+            return "Tu carga ha disminuido respecto al periodo anterior."
+        case .workoutsIncreased:
+            return "Has entrenado más que en el periodo anterior."
+        case .workoutsDecreased:
+            return "Has entrenado menos que en el periodo anterior."
+        case .stable:
+            return "Has mantenido una actividad similar."
+        }
+    }
+
+    private var iconName: String {
+        switch insight {
+        case .inactive:
+            return "moon.zzz"
+        case .loadIncreased, .workoutsIncreased:
+            return "arrow.up.right"
+        case .loadDecreased, .workoutsDecreased:
+            return "arrow.down.right"
+        case .stable:
+            return "equal"
+        }
     }
 }
 
